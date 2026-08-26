@@ -8,9 +8,32 @@ description: Validate Python files against the project's code-structure and form
 This skill provides a command-line validator that checks Python files against
 the project's code-structure and formatting conventions.
 
-When creating or modifying Python files, consult the rules below before running
-the validator. Apply the rules proactively rather than relying on the validator
-to discover every issue afterward.
+When creating or modifying Python files, consult the rules below **before**
+writing. Apply the rules proactively rather than writing code and then fixing
+it. The validator is a final check, not a cleanup tool.
+
+## For the AI assistant: write it correctly the first time
+
+Before generating or editing any Python file in this project, run through this
+mental checklist. If a rule applies to the line you are about to write, apply it
+immediately.
+
+- [ ] **Header**: first line is `# <project>/<relative/path>.py`.
+- [ ] **Imports**: contiguous block, no blank lines inside it, local imports
+      last and alphabetically sorted.
+- [ ] **Class panels**: every `class ` is preceded by the exact 20-char panel.
+- [ ] **Lead comments**: every `def _...` starts with
+      `# Internal Function: <why it exists>` and every public `def ...` starts
+      with `# Public Method: <why it exists>`.
+- [ ] **Chunk comments**: every code chunk after a blank line starts with a
+      comment that explains *why* the chunk exists, not what the code does.
+- [ ] **Comment length**: no comment line exceeds 92 columns.
+- [ ] **Alignment**: multi-line keyword args and dict entries are vertically
+      aligned.
+- [ ] **Blank lines**: never leave double blank lines.
+
+If you are unsure whether a comment is meaningful, read only the comments in
+order. They should tell a coherent story without reading the code.
 
 ## Rules
 
@@ -99,8 +122,38 @@ def get_edge(key):
   start with an explanatory `#` comment where required by the validator.
 - Triple-quoted multiline strings and docstrings are excluded from this
   analysis.
-- Do not add meaningless comments merely to satisfy the rule. Comments should
-  describe the purpose of the following code chunk.
+- Comments must tell the reader **why** the following chunk exists and how it
+  fits into the overall flow. A reader should be able to skim the file as a
+  story by reading only the comments.
+- Do not add comments that merely restate the code (e.g. `# Check the if
+  clause.`, `# Return the result.`, `# Do the next step.`). They must explain
+  intent, context, or the business/algorithmic purpose of the chunk.
+- Never leave auto-generated placeholder comments in committed code. Treat them
+  as TODOs and rewrite them into meaningful prose before committing.
+
+Example of bad vs. good chunk comments:
+
+~~~python
+# Bad: restates the code, adds no meaning.
+# Handle the conditional case.
+if do_commit:
+    ...
+
+# Good: explains the business intent.
+# Persist the node inside a new session when the caller asked for a commit.
+if do_commit:
+    ...
+~~~
+
+~~~python
+# Bad: generic filler.
+# Return the computed result.
+return NodeList(item_list=nodes)
+
+# Good: explains what the returned value represents.
+# Return the saved nodes as a NodeList.
+return NodeList(item_list=nodes)
+~~~
 
 ### Comment length
 
@@ -193,6 +246,40 @@ Use:
 - `**mapping` entries are excluded from alignment.
 - Non-string and computed dictionary keys are not subject to this rule.
 
+## New file template
+
+When creating a new Python file, mirror this layout. Do not leave sections empty
+or skip the required comments.
+
+~~~python
+# graphregistry/adapters/persistence/mysql/repositories/example.py
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+from graphregistry.adapters.persistence.mysql.session import MySQLSession
+from graphregistry.domain.models.entities.mdl_example import Example
+
+if TYPE_CHECKING:
+    from graphdb.core.graphdb import GraphDB
+
+#==================#
+# Class Definition #
+#==================#
+class ExampleRepository:
+    """Short purpose of the class."""
+
+    # Internal Function: Build a safely quoted schema-qualified table name.
+    @staticmethod
+    def _qt(schema_name: str, table_name: str) -> str:
+        return f"`{schema_name}`.`{table_name}`"
+
+    # Public Method: Persist a single example and return it for chaining.
+    def save(self, example: Example) -> Example:
+        # Resolve the engine and schema for the example key.
+        engine_name, schema_name = self._resolver.for_key(example.key)
+        ...
+~~~
+
 ## Running the validator
 
 The validator is bundled with this skill:
@@ -213,6 +300,40 @@ name = "<project-name>"
 
 The validator searches upward from the target file for the nearest
 `pyproject.toml`.
+
+## Automatic fixing
+
+A mechanical fixer is also bundled with this skill:
+
+~~~bash
+python .opencode/skills/code-validation/code_fixer.py <path/to/file.py>
+~~~
+
+By default it runs in dry-run mode and prints the changes it would make. Use
+`--write` to apply the changes in place:
+
+~~~bash
+python .opencode/skills/code-validation/code_fixer.py --write <path/to/file.py>
+~~~
+
+Additional options:
+
+- `--check`: run `code_validator.py` on each file after writing.
+- `--add-chunk-comments`: insert placeholder comments before isolated code
+  chunks. The placeholders are intentionally generic (e.g. `# Handle the
+  conditional case.`) and **must be rewritten** before the code is committed.
+  This flag is opt-in precisely because meaningful chunk comments require human
+  judgment.
+- `--no-backup`: skip the `.bak` backup created next to each modified file.
+
+The fixer only applies safe, mechanical transformations: headers, blank lines,
+class panels, comment prefixes, keyword/dict alignment, and long-comment
+splitting. It validates the resulting file with `ast.parse` before writing and
+refuses to write if a syntax error is introduced.
+
+Always review the diff after running the fixer. When `--add-chunk-comments` is
+used, every inserted comment must be rewritten so that the file reads as a
+ coherent story; placeholder comments are not acceptable in committed code.
 
 ## Validation workflow
 
