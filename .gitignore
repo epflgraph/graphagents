@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OpenCode local files
+node_modules/
+package.json
+package-lock.json
+bun.lock
+chat/
+logbook/
