@@ -22,6 +22,7 @@ description: Guidelines for ensuring safety and minimizing risk in project opera
 
 ## Git Safety
 
+- Stay in the current repo; don't venture into others deployed on the same server.
 - Do not execute Git commands unless explicitly requested by the user.
 - Do not commit, push, pull, merge, rebase, stash, reset, checkout, cherry-pick, tag, or modify Git history.
 - Do not assume Git operations are safe simply because they appear read-only.

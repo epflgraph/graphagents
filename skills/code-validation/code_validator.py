@@ -132,66 +132,47 @@ for class_index in class_indices:
             f"[green]\n{formatted_panel}[/green]"
         )
 
-#=============================================================#
-# Rule check: Internal function definition comment before def #
-#=============================================================#
+#=====================================================================#
+# Rule check: Function/method definition comment before each function #
+#=====================================================================#
 
-# Locate all internal function definitions in the file
-internal_function_indices = [
+# Define the allowed function/method comment prefixes
+function_comment_prefixes = (
+    "# Function: ",
+    "# Method: ",
+    "# Helper Function: ",
+    "# Helper Method: ",
+    "# Internal Function: ",
+    "# Internal Method: ",
+    "# Public Function: ",
+    "# Public Method: ",
+)
+
+# Locate all function and method definitions in the file
+function_indices = [
     i
     for i, line in enumerate(text_split)
-    if line.strip().startswith("def _")
-    and not line.strip().startswith("def __")
+    if line.strip().startswith("def ")
 ]
 
-# Check that each internal function definition is preceded by the required comment
-for func_index in internal_function_indices:
+# Check that each function/method definition is preceded by an allowed descriptive comment
+for func_index in function_indices:
     comment_index = func_index - 1
 
     # Walk backwards over decorators
     while comment_index >= 0 and text_split[comment_index].strip().startswith("@"):
         comment_index -= 1
 
-    # Check for the required comment before the function/decorators
-    if (
-        comment_index < 0
-        or not text_split[comment_index].strip().startswith("# Internal Function: ")
-    ):
+    # Get the descriptive comment before the function/decorators
+    comment = text_split[comment_index].strip() if comment_index >= 0 else ""
+
+    # Check for one of the allowed function/method comment types
+    if not comment.startswith(function_comment_prefixes):
+        allowed_formats = ", ".join(prefix + "<Description>" for prefix in function_comment_prefixes)
         assertion_errors.append(
-            f"Internal function definition at line {func_index + 1} is not preceded "
-            f"by the required internal function comment: "
-            f"[green]# Internal Function: <description>[/green]"
-        )
-
-#=========================================================#
-# Rule check: Public method definition comment before def #
-#=========================================================#
-
-# Locate all public method definitions in the file
-public_method_indices = [
-    i
-    for i, line in enumerate(text_split)
-    if line.strip().startswith("def ")
-    and not line.strip().startswith("def _")
-]
-
-# Check that each public method definition is preceded by the required comment
-for method_index in public_method_indices:
-    comment_index = method_index - 1
-
-    # Walk backwards over decorators
-    while comment_index >= 0 and text_split[comment_index].strip().startswith("@"):
-        comment_index -= 1
-
-    # Check for the required comment before the method/decorators
-    if (
-        comment_index < 0
-        or not text_split[comment_index].strip().startswith("# Public Method: ")
-    ):
-        assertion_errors.append(
-            f"Public method definition at line {method_index + 1} is not preceded "
-            f"by the required method comment: "
-            f"[green]# Public Method: <description>[/green]"
+            f"Function/method definition at line {func_index + 1} is not preceded "
+            f"by an allowed descriptive comment. Expected one of: "
+            f"[green]{allowed_formats}[/green]"
         )
 
 #========================================================#
@@ -245,11 +226,11 @@ for chunk in chunks:
         )
 
 #===============================================================#
-# Rule check: Comments must not exceed 92 characters            #
+# Rule check: Comments must not exceed N characters             #
 #===============================================================#
 
 # Set the maximum allowed length for comments
-max_comment_length = 92
+max_comment_length = 128
 
 # Check each line to see if it is a comment and exceeds the maximum length
 for i, line in enumerate(text_split):

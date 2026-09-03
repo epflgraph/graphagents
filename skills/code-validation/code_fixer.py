@@ -36,7 +36,19 @@ CLASS_PANEL = [
     "#==================#",
 ]
 
-MAX_COMMENT_LENGTH = 92
+# Allowed function/method lead-comment prefixes. Must stay in sync with code_validator.py.
+FUNCTION_COMMENT_PREFIXES = (
+    "# Function: ",
+    "# Method: ",
+    "# Helper Function: ",
+    "# Helper Method: ",
+    "# Internal Function: ",
+    "# Internal Method: ",
+    "# Public Function: ",
+    "# Public Method: ",
+)
+
+MAX_COMMENT_LENGTH = 112
 PROJECT_NAME = "graphregistry"
 
 
@@ -284,7 +296,11 @@ def _make_lead_comment(prefix: str, name: str, summary: str | None) -> str:
 
 
 def fix_method_function_comments(lines: list[str]) -> list[str]:
-    """Add missing # Internal Function: / # Public Method: lead comments."""
+    """Add missing lead comments only when a meaningful description can be derived from the docstring.
+
+    The fixer never emits low-IQ comments that merely restate the function name.
+    Functions without docstrings are left for human review in the LLM-fix cycle.
+    """
     result: list[str] = []
     i = 0
     while i < len(lines):
@@ -310,14 +326,16 @@ def fix_method_function_comments(lines: list[str]) -> list[str]:
         comment_idx = k
         has_prefix = (
             comment_idx >= 0
-            and result[comment_idx].lstrip().startswith("# Internal Function: ")
-        ) or (
-            comment_idx >= 0
-            and result[comment_idx].lstrip().startswith("# Public Method: ")
+            and result[comment_idx].lstrip().startswith(FUNCTION_COMMENT_PREFIXES)
         )
 
         if not has_prefix:
             summary = _docstring_summary(lines, i + 1)
+            if summary is None:
+                # No docstring available to derive a meaningful comment; leave for LLM fix.
+                result.append(line)
+                i += 1
+                continue
             if _is_internal_def(line):
                 prefix = "# Internal Function:"
             elif _is_public_def(line):

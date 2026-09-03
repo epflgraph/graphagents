@@ -5,35 +5,26 @@ description: Validate Python files against the project's code-structure and form
 
 # Code validation
 
-This skill provides a command-line validator that checks Python files against
-the project's code-structure and formatting conventions.
+This skill provides a command-line validator that checks Python files against the project's code-structure and formatting conventions.
 
 When creating or modifying Python files, consult the rules below **before**
-writing. Apply the rules proactively rather than writing code and then fixing
-it. The validator is a final check, not a cleanup tool.
+writing. Apply the rules proactively rather than writing code and then fixing it. The validator is a final check, not a cleanup tool.
 
 ## For the AI assistant: write it correctly the first time
 
-Before generating or editing any Python file in this project, run through this
-mental checklist. If a rule applies to the line you are about to write, apply it
-immediately.
+Before generating or editing any Python file in this project, run through this mental checklist. If a rule applies to the line you are about to write, apply it immediately.
 
 - [ ] **Header**: first line is `# <project>/<relative/path>.py`.
-- [ ] **Imports**: contiguous block, no blank lines inside it, local imports
-      last and alphabetically sorted.
+- [ ] **Imports**: contiguous block, no blank lines inside it, local imports last and alphabetically sorted.
 - [ ] **Class panels**: every `class ` is preceded by the exact 20-char panel.
-- [ ] **Lead comments**: every `def _...` starts with
-      `# Internal Function: <why it exists>` and every public `def ...` starts
-      with `# Public Method: <why it exists>`.
-- [ ] **Chunk comments**: every code chunk after a blank line starts with a
-      comment that explains *why* the chunk exists, not what the code does.
-- [ ] **Comment length**: no comment line exceeds 92 columns.
-- [ ] **Alignment**: multi-line keyword args and dict entries are vertically
-      aligned.
+- [ ] **Lead comments**: functions and method should have a comment above them describing what the function or method does. As a rule of thumb, start the description with `# Function[Method]: Description` (respect the upper cases), `# Helper Function[Method]: Description`, `# Internal Function[Method]: Description`, `# Public Function[Method]: Description`, etc.
+- [ ] **Meaningful comments**: comments are meant to allow developers to go through the code, and understand what it does with explicitly reading the actual code lines. This means comments should actually be meaningful, and absolutely not low-IQ comments like "# Function: get create table \n def get_create_table(...)".
+- [ ] **Chunk comments**: every code chunk after a blank line starts with a comment that explains *why* the chunk exists, not what the code does.
+- [ ] **Comment length**: no comment line exceeds 128 columns.
+- [ ] **Alignment**: multi-line keyword args and dict entries are vertically aligned.
 - [ ] **Blank lines**: never leave double blank lines.
 
-If you are unsure whether a comment is meaningful, read only the comments in
-order. They should tell a coherent story without reading the code.
+If you are unsure whether a comment is meaningful, read only the comments in order. They should tell a coherent story without reading the code.
 
 ## Rules
 
@@ -41,8 +32,7 @@ Before running the validator, check the target file against these conventions.
 
 ### File header
 
-- The first line must be a comment containing the path of the file relative to
-  the project root.
+- The first line must be a comment containing the path of the file relative to the project root.
 - The path must start with the project name from `[project].name` in
   `pyproject.toml`.
 - Use POSIX `/` path separators.
@@ -62,8 +52,7 @@ Example:
 
 ### Class definitions
 
-- Class definitions must be preceded by the project's required class panel
-  comment.
+- Class definitions must be preceded by the project's required class panel comment.
 - Preserve the exact panel width and formatting expected by the validator.
 
 Example:
@@ -76,16 +65,14 @@ Example:
 
 ### Internal functions and methods
 
-- Functions or methods whose names start with a single underscore must be
-  preceded by:
+- Functions or methods whose names start with a single underscore must be preceded by:
 
 ~~~python
 # Internal Function: <description>
 ~~~
 
 - Dunder methods such as `__init__` are excluded from this rule.
-- When decorators are present, place the comment immediately before the first
-  decorator.
+- When decorators are present, place the comment immediately before the first decorator.
 
 Example:
 
@@ -104,8 +91,7 @@ def _row_to_edge(row):
 # Public Method: <description>
 ~~~
 
-- When decorators are present, place the comment immediately before the first
-  decorator.
+- When decorators are present, place the comment immediately before the first decorator.
 
 Example:
 
@@ -118,18 +104,11 @@ def get_edge(key):
 
 ### Code chunks
 
-- Every chunk of code separated from the previous chunk by a blank line must
-  start with an explanatory `#` comment where required by the validator.
-- Triple-quoted multiline strings and docstrings are excluded from this
-  analysis.
-- Comments must tell the reader **why** the following chunk exists and how it
-  fits into the overall flow. A reader should be able to skim the file as a
-  story by reading only the comments.
-- Do not add comments that merely restate the code (e.g. `# Check the if
-  clause.`, `# Return the result.`, `# Do the next step.`). They must explain
-  intent, context, or the business/algorithmic purpose of the chunk.
-- Never leave auto-generated placeholder comments in committed code. Treat them
-  as TODOs and rewrite them into meaningful prose before committing.
+- Every chunk of code separated from the previous chunk by a blank line must start with an explanatory `#` comment where required by the validator.
+- Triple-quoted multiline strings and docstrings are excluded from this analysis.
+- Comments must tell the reader **why** the following chunk exists and how it fits into the overall flow. A reader should be able to skim the file as a story by reading only the comments.
+- Do not add comments that merely restate the code (e.g. `# Check the if clause.`, `# Return the result.`, `# Do the next step.`). They must explain intent, context, or the business/algorithmic purpose of the chunk.
+- Never leave auto-generated placeholder comments in committed code. Treat them as TODOs and rewrite them into meaningful prose before committing.
 
 Example of bad vs. good chunk comments:
 
@@ -198,8 +177,7 @@ Method groups must use the exact panel format:
 
 ### Keyword argument alignment
 
-When a function call contains multiple consecutive keyword arguments on
-separate lines, vertically align their `=` separators.
+When a function call contains multiple consecutive keyword arguments on separate lines, vertically align their `=` separators.
 
 Use:
 
@@ -227,8 +205,7 @@ self._upsert_rows(
 
 ### Dictionary alignment
 
-When a dictionary contains multiple consecutive string-literal keys on
-separate lines, vertically align their `:` separators.
+When a dictionary contains multiple consecutive string-literal keys on separate lines, vertically align their `:` separators.
 
 Use:
 
@@ -248,8 +225,7 @@ Use:
 
 ## New file template
 
-When creating a new Python file, mirror this layout. Do not leave sections empty
-or skip the required comments.
+When creating a new Python file, mirror this layout. Do not leave sections empty or skip the required comments.
 
 ~~~python
 # graphregistry/adapters/persistence/mysql/repositories/example.py
@@ -288,8 +264,7 @@ The validator is bundled with this skill:
 python .opencode/skills/code-validation/code_validator.py <path/to/file.py>
 ~~~
 
-The target file must belong to a project containing a `pyproject.toml` in one
-of its parent directories.
+The target file must belong to a project containing a `pyproject.toml` in one of its parent directories.
 
 The `pyproject.toml` must contain:
 
@@ -309,8 +284,7 @@ A mechanical fixer is also bundled with this skill:
 python .opencode/skills/code-validation/code_fixer.py <path/to/file.py>
 ~~~
 
-By default it runs in dry-run mode and prints the changes it would make. Use
-`--write` to apply the changes in place:
+By default it runs in dry-run mode and prints the changes it would make. Use `--write` to apply the changes in place:
 
 ~~~bash
 python .opencode/skills/code-validation/code_fixer.py --write <path/to/file.py>
