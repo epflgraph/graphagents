@@ -1,11 +1,11 @@
 ---
 name: graphai
-description: Understanding of the GraphAI service, its legacy client, and the hexagonal adapters in GraphRegistry.
+description: GraphAI service, its legacy client, and queuing-style API patterns.
 ---
 
 # GraphAI
 
-GraphAI is the EPFL Graph Data Platform's semantic-analysis service. GraphRegistry consumes it through a set of hexagonal gateway adapters. A local copy of the GraphAI service source lives in `resources/graphai_repo/`, and the legacy client package lives in `resources/graphai_client/`.
+GraphAI is the EPFL Graph Data Platform's semantic-analysis service. A local copy of the service source lives in `resources/graphai_repo/`, and the legacy client package lives in `resources/graphai_client/`.
 
 ## What GraphAI provides
 
@@ -25,7 +25,23 @@ GraphAI is the EPFL Graph Data Platform's semantic-analysis service. GraphRegist
   2. Poll `GET /{domain}/{action}/status/{task_id}` until `task_status` is `SUCCESS` or `FAILURE`.
 - Async status response contains `task_result` with metadata such as `successful`, `result`, `text_too_large`, `fresh`, `device`, `token`, `token_status`, `token_size`, `file_found`, `failure_reason`.
 - Bearer-token authentication via `POST /token`.
-- Configured in GraphRegistry through `config/config_graphai.json` (`graphai.client_config_file` in `GlobalConfig`).
+
+## Domains and representative endpoints
+
+- `text`: `/text/keywords`, `/text/wiki_search`, `/text/wikify`
+- `translation`: `/translation/translate`, `/translation/detect_language`, `/translation/calculate_fingerprint`
+- `embedding`: `/embedding/embed`, `/embedding/calculate_fingerprint`
+- `image`: `/image/extract_text`, `/image/calculate_fingerprint`, `/image/retrieve_url`, `/image/upload_file`
+- `video`: `/video/retrieve_url`, `/video/calculate_fingerprint`, `/video/extract_audio`, `/video/detect_slides`, `/video/get_file`
+- `voice`: `/voice/transcribe`, `/voice/detect_language`, `/voice/calculate_fingerprint`
+
+## Task-result semantics
+
+- `task_status`: `PENDING`, `STARTED`, `SUCCESS`, `FAILURE`.
+- `successful=False` + `text_too_large=True` means the caller should split the input and retry.
+- `file_found=False` means the source media file is missing on GraphAI.
+- `/video/retrieve_url` may return a non-empty `failure_reason` for download failures.
+- Batch endpoints may return a list of per-item dicts instead of a single dict.
 
 ## Legacy client (`resources/graphai_client/`)
 
@@ -40,50 +56,14 @@ GraphAI is the EPFL Graph Data Platform's semantic-analysis service. GraphRegist
   - `utils.py`: login, async polling loop, shared list/text helpers.
 - `utils.py`: subtitle helpers, MySQL helpers, Google API helpers.
 
-The legacy client is procedural and mixes HTTP details with orchestration. It is being incrementally replaced by typed hexagonal adapters.
+The legacy client is procedural and mixes HTTP details with orchestration. It is being incrementally replaced by typed hexagonal adapters inside GraphRegistry.
 
-## Hexagonal adapters (`graphregistry/adapters/gateways/graphai/`)
+## Queuing / API conventions
 
-- `agt_base.py`: `GraphAIBaseGateway`
-  - Config resolution, lazy login, HTTP retry logic, async task submission/polling.
-- `agt_conceptdet.py`: `GraphAIConceptDetectionGateway`
-  - Port: `ConceptDetectionGateway`.
-  - `wiki_search`, `detect_concepts`.
-- `agt_translation.py`: `GraphAITextTranslationGateway`
-  - Port: `TextTranslationGateway`.
-  - `translate_text`, `translate_multilingual`, direct-pair routing, auto-chunking.
-- `agt_embedding.py`: `GraphAIEmbeddingGateway`
-  - `embed_text` for strings and lists; auto-chunking and weighted averaging.
-- `agt_image.py`: `GraphAIImageGateway`
-  - `extract_text_from_slide`, `calculate_fingerprint`.
-- `agt_video.py`: `GraphAIVideoGateway`
-  - `get_video`, `fingerprint`, `extract_audio`, `extract_slides`, `download_file`, plus async launch/result helpers.
-- `agt_voice.py`: `GraphAIVoiceGateway`
-  - `transcribe_audio`, `detect_language`, `fingerprint`.
-- `types.py`: `GraphAIGateway`, `GraphAIGatewayDict` type aliases.
-
-## Ports and domain models
-
-- Application ports:
-  - `graphregistry/application/gateways/gtw_conceptdet.py`: `ConceptDetectionGateway`
-  - `graphregistry/application/gateways/gtw_translation.py`: `TextTranslationGateway`
-  - `graphregistry/application/gateways/gtw_video.py`, `gtw_voice.py`: video/voice processing ports.
-- Domain models:
-  - `mdl_conceptmap.py`: `Concept`, `ScoredConcept`, `ScoredConceptList`
-  - `mdl_text.py`: `MultilingualText`, `LanguageCode`, `LanguageCodeList`
-  - `mdl_lecture.py`: `Video`, `Voice`, `Slide`, `SlideList`, `Transcript`, `TranscriptSegment`
-
-## Wiring in GraphRegistry
-
-- CLI dependency builders in `graphregistry/entrypoints/cli/dependencies.py` inject GraphAI gateways into `NodeOperations` and `LectureOperations`.
-- API router `get_node_factory()` uses `GraphAIConceptDetectionGateway` for concept-aware node creation.
-- CLI `main.py` still imports the legacy `graphai_client` package only for the `ai` domain.
-
-## Key implementation conventions
-
-- Keep `login_info` (auth payload) inside adapters; do not expose it to application or domain layers.
-- Map GraphAI's token-based media model to domain entities (`Video`, `Voice`, `Slide`) in the adapter.
-- Defensively parse task results; GraphAI may return dicts, lists, or JSON-stringified values.
 - Provide `launch_only=True` variants for long-running async tasks when callers need to orchestrate many jobs.
-- Preserve legacy graceful-degradation behavior: language fallback (English/French), text chunking on `text_too_large`, and list-shape reconstruction.
-- Gateways are normal instantiable objects; tests can inject `login_info` to bypass real authentication.
+- Use persistent HTTP sessions across submit → status polling to reduce TLS overhead.
+- Back off exponentially when polling status; cap the sleep interval and respect a total deadline.
+- Retry transient HTTP errors (`408/425/429/5xx`) and refresh the bearer token on `401`.
+- Defensively parse task results; GraphAI may return dicts, lists, or JSON-stringified values.
+- Keep `login_info` (auth payload) inside client/adapter code; do not expose it to caller business logic.
+- Preserve legacy graceful-degradation behavior at the client level: language fallback (English/French), text chunking on `text_too_large`, and list-shape reconstruction.

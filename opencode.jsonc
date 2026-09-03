@@ -1,6 +1,6 @@
 {
     "$schema": "https://opencode.ai/config.json",
-    "default_agent": "senior-hexa-architect",
+    "default_agent": "senior-hexa-developer",
     "skills": {
         "paths": [".opencode/skills"]
     },
