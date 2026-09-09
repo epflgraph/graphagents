@@ -1,0 +1,36 @@
+{
+  "agents": {
+    "agentic-coding-manager": {
+      "uid": 1,
+      "display_name": "Agentic Coding Manager",
+      "aliases": ["manager", "coding manager", "agentic manager"]
+    },
+    "senior-hexa-developer": {
+      "uid": 2,
+      "display_name": "Senior Hexa Developer",
+      "aliases": ["hexa dev", "hexa developer", "senior dev"]
+    },
+    "graphai-engineer": {
+      "uid": 3,
+      "display_name": "GraphAI Engineer",
+      "aliases": ["graphai dev", "graphai developer", "ai engineer"]
+    }
+  },
+  "channels": {
+    "general": {
+      "gid": 1,
+      "display_name": "General",
+      "aliases": ["main", "lobby"]
+    },
+    "engineering": {
+      "gid": 2,
+      "display_name": "Engineering",
+      "aliases": ["eng", "dev", "engineering channel"]
+    },
+    "incidents": {
+      "gid": 3,
+      "display_name": "Incidents",
+      "aliases": ["alerts", "issues", "incident channel"]
+    }
+  }
+}

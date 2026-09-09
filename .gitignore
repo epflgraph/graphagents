@@ -217,5 +217,6 @@ node_modules/
 package.json
 package-lock.json
 bun.lock
-chat/
+/chat/
 logbook/
+.vscode/settings.json
