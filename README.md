@@ -21,7 +21,7 @@ The *Graph Data Platform* - developed by the AI engineering team at the [EPFL Ce
 [Dash](https://github.com/epflgraph/graphdashboard) |
 [DB client](https://github.com/epflgraph/graphdb-client) |
 [ES client](https://github.com/epflgraph/graphes-client) |
-[SDK](https://github.com/epflgraph/graphsdk) |
+[SDK](https://github.com/epflgraph/graph-sdk) |
 Agents
 
 Graph Agents
