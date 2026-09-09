@@ -213,10 +213,10 @@ __marimo__/
 .DS_Store
 
 # Repo-specific
+.vscode
 node_modules/
 package.json
 package-lock.json
 bun.lock
 /chat/
 logbook/
-.vscode/settings.json

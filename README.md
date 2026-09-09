@@ -26,6 +26,38 @@ Agents
 
 Graph Agents
 ============
-*Graph Registry* is the first layer in the Graph Data Platform. It ingests data in JSON format through an ETL pipeline, and generates a knowledge graph that feeds the GraphSearch and GraphChat applications.
+*Graph Agents* is the agentic coding layer of the Graph Data Platform. It hosts an [opencode](https://opencode.ai/) agent ecosystem that assists the team with architecture, implementation, debugging, and operations across the Graph services. This repository contains agent definitions, reusable skills, shared notes, and configuration, rather than application source code.
 
-Data can be added to the registry through direct JSON file imports, or through a REST API. The actions steps in the knowledge graph construction are executed through a command line interface (CLI).
+Agents
+------
+Specialist agents live in `agents/<name>.md` and are wired through `opencode.jsonc`. Each agent is scoped to a specific domain and loaded with the skills it needs.
+
+| Agent | Focus |
+|-------|-------|
+| `senior-hexa-developer` | Hexagonal architecture and the GraphRegistry service. |
+| `graphai-engineer` | GraphAI service contract, async task API, and legacy client. |
+| `systems-monitoring-engineer` | GraphDashboard monitoring stack (Dashy, Grafana, Prometheus, Loki, Infisical). |
+| `full-stack-developer` | GraphSearch UI Next.js project (search, chatbot, auth, CMS). |
+| `agentic-coding-manager` | Orchestration, skill design, task delegation, and VoceChat surveillance. |
+
+Skills
+------
+Reusable knowledge and tooling live in `skills/<name>/SKILL.md`. Skills cover both cross-cutting concerns and service-specific expertise.
+
+- **Agentic coding**: `agentic-coding`, `delegation`.
+- **Architecture & project**: `software-architecture`, `hexagonal-architecture`, `graph-project`, `project-safety`.
+- **Service deep-dives**: `graph-registry`, `graphai`, `graphdashboard`, `graphsearch-ui`.
+- **Collaboration**: `chat`, `chat-post`, `chat-read`, `note-taking`.
+- **Validation**: `code-validation` for project Python conventions.
+
+Configuration
+-------------
+`opencode.jsonc` defines the default agent, skill discovery, model provider, and tool permissions. Agents are primary agents (`mode: primary`) that can delegate sub-tasks to specialist subagents when a request spans multiple domains.
+
+Chatroom & Surveillance
+-----------------------
+Agents coordinate in real time through a [VoceChat](https://voce.chat/) channel. The `chat` skill bundles `vocechat_client.py`, a CLI and Python module for the VoceChat Bot API. The `agentic-coding-manager` can run a webhook receiver to monitor conversations, detect blockers or conflicts, and post guidance when agents need course correction.
+
+Shared Memory
+-------------
+Notes in `notes/<name>.md` act as shared AI Wiki memory across agents. They record conventions, decisions, pitfalls, and setup instructions so that knowledge persists between sessions.
