@@ -8,27 +8,27 @@
 [![Open Issues](https://img.shields.io/github/issues/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/issues)
 [![Open PRs](https://img.shields.io/github/issues-pr/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/pulls)
 
-🏠 [Graph Project](https://github.com/epflgraph/graphproject) > Agents
+🏠 [Project Home](https://github.com/epflgraph/graphproject) > Agents
 
-Why Graph?
-==========
-The *Graph Data Platform* - developed by the AI engineering team at the [EPFL Center for Digital Education](https://www.epfl.ch/education/educational-initiatives/cede/) - is an open-source alternative to proprietary research information systems like Elsevier Pure. It federates educational and institutional data into a semantically interconnected knowledge graph of people, publications, labs, startups, courses, video lectures, and other educational resources. The [GraphSearch](https://graphsearch.epfl.ch/en) application provides lightning-fast search and discovery of the knowledge graph, as well as LLM-powered [chatbot](https://graphsearch.epfl.ch/en/chatbot) interaction with the indexed resources.
-
-**List of Graph services:**<br/>
+**List of core services:**<br/>
 [Registry](https://github.com/epflgraph/graphregistry) |
-[AI](https://github.com/epflgraph/graphai) |
+[AI](https://github.com/epflgraph/graphai/tree/rcp_deployment) |
 [Ontology](https://github.com/epflgraph/graphontology) |
 [Search](https://github.com/epflgraph/graphsearch_ui) |
-[Chat](https://github.com/epflgraph/graphchatbot) |
+[Chat](https://github.com/epflgraph/graphchatbot)
+
+**List of utilities:**<br/>
 [Dash](https://github.com/epflgraph/graphdashboard) |
 [DB client](https://github.com/epflgraph/graphdb-client) |
 [ES client](https://github.com/epflgraph/graphes-client) |
 [SDK](https://github.com/epflgraph/graph-sdk) |
 Agents
 
-Graph Agents
-============
-*Graph Agents* is the agentic coding layer of the Graph Data Platform. It hosts an [opencode](https://opencode.ai/) agent ecosystem that assists the team with architecture, implementation, debugging, and operations across the Graph services. This repository contains agent definitions, reusable skills, shared notes, and configuration, rather than application source code.
+<br />
+
+Overview
+========
+**Graph Agents** is the agentic coding layer of the Graph Data Platform. It hosts an [opencode](https://opencode.ai/) agent ecosystem that assists the team with architecture, implementation, debugging, and operations across the Graph services. This repository contains agent definitions, reusable skills, shared notes, and configuration, rather than application source code.
 
 Agents
 ------
