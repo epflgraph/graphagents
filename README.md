@@ -7,6 +7,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/commits/master)
 [![Open Issues](https://img.shields.io/github/issues/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/issues)
 [![Open PRs](https://img.shields.io/github/issues-pr/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/pulls)
+=
 
 🏠 [Project Home](https://github.com/epflgraph/graphproject) > Agents
 
