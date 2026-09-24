@@ -2,21 +2,30 @@
 """VoceChat Bot API client and webhook receiver for conversation surveillance.
 
 Bundled with the `chat` skill. Provides the VoceChat backend implementation
-for sending messages, querying users/groups, and receiving webhook events.
+for sending messages, querying users/groups, reading recent messages, and
+receiving webhook events.
 
 Usage:
-  python vocechat_client.py groups
-  python vocechat_client.py send-user --uid 1 --content "Hello!"
-  python vocechat_client.py send-group --gid 2 --content "**Status**" --markdown
-  python vocechat_client.py user-info --uid 1
-  python vocechat_client.py group-info --gid 2
+  python vocechat_client.py --as spike groups
+  python vocechat_client.py --as spike send-user --uid 4 --content "Hello!"
+  python vocechat_client.py --as spike send-group --gid 2 --content "**Status**" --markdown
+  python vocechat_client.py --as hubert group-messages --gid 2 --context 20
+  python vocechat_client.py --as hubert user-messages --uid 3
+  python vocechat_client.py --as spike user-info --uid 4
+  python vocechat_client.py --as spike group-info --gid 1
   python vocechat_client.py webhook --port 8010
   python vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat.log
 
+Identity:
+  Each agent speaks as its own bot. `--as spike` resolves the API key from
+  VOCECHAT_SPIKE_API_KEY, `--as hubert` from VOCECHAT_HUBERT_API_KEY, etc.
+  Without `--as` the client falls back to VOCECHAT_API_KEY.
+
 Environment variables (or .env file):
-  VOCECHAT_SERVER    Base URL of the VoceChat server
-  VOCECHAT_API_KEY   Bot API key
-  VOCECHAT_BOT_ID    Bot user ID (optional)
+  VOCECHAT_SERVER          Base URL of the VoceChat server
+  VOCECHAT_<BOT>_API_KEY   Per-bot API key (e.g. VOCECHAT_SPIKE_API_KEY)
+  VOCECHAT_API_KEY         Fallback API key when no --as is given
+  VOCECHAT_BOT_ID          Bot user ID (optional)
 """
 
 from __future__ import annotations
@@ -115,7 +124,8 @@ class VoceChatClient:
             )
         if not self.api_key:
             raise ValueError(
-                "VOCECHAT_API_KEY is not set. Set it in .env or pass --api-key."
+                "No API key: pass --as <bot> (resolves VOCECHAT_<BOT>_API_KEY), "
+                "set VOCECHAT_API_KEY in .env, or pass --api-key."
             )
 
     # Public Method: Get all groups (channels) the bot is a member of.
@@ -168,18 +178,66 @@ class VoceChatClient:
         return int(result) if result is not None else 0
 
     # Public Method: Get information about a user by their UID.
+    # VoceChat requires the uid both as a path segment and as a query
+    # parameter: the route is /user/{uid} but the handler reads the query.
     def get_user(self, uid: int) -> dict[str, Any]:
-        result = self._request("GET", f"/user?uid={uid}")
+        result = self._request("GET", f"/user/{uid}?uid={uid}")
         if isinstance(result, dict):
             return result
         return {}
 
     # Public Method: Get information about a group by its GID.
+    # VoceChat requires the gid both as a path segment and as a query
+    # parameter: the route is /group/{gid} but the handler reads the query.
     def get_group(self, gid: int) -> dict[str, Any]:
-        result = self._request("GET", f"/group?gid={gid}")
+        result = self._request("GET", f"/group/{gid}?gid={gid}")
         if isinstance(result, dict):
             return result
         return {}
+
+    # Public Method: Get recent messages of a group (channel) the bot is a
+    # member of. `context` limits the number of messages returned and
+    # `user_id` filters by sender uid. This is the pull-based read path
+    # behind "new message for you".
+    def get_group_messages(
+        self,
+        gid: int,
+        context: int | None = None,
+        user_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        path = f"/group/{gid}/messages"
+        params: list[str] = []
+
+        # Optional pagination and sender filters as query parameters.
+        if context is not None:
+            params.append(f"context={context}")
+        if user_id is not None:
+            params.append(f"user_id={user_id}")
+        if params:
+            path += "?" + "&".join(params)
+
+        result = self._request("GET", path)
+        if isinstance(result, list):
+            return result
+        return []
+
+    # Public Method: Get recent DM messages exchanged with a user.
+    # `context` limits the number of messages returned.
+    def get_user_messages(
+        self,
+        uid: int,
+        context: int | None = None,
+    ) -> list[dict[str, Any]]:
+        path = f"/user/{uid}/messages"
+
+        # Optional pagination as a query parameter.
+        if context is not None:
+            path += f"?context={context}"
+
+        result = self._request("GET", path)
+        if isinstance(result, list):
+            return result
+        return []
 
     # Public Method: Prepare a file upload and return the file_id (UUID).
     def prepare_upload(self, content_type: str, filename: str) -> str:
@@ -470,20 +528,83 @@ def load_env_file(env_path: str = ".env") -> None:
             os.environ[key] = value
 
 
+# Public Function: Resolve the API key of a bot from per-bot env variables.
+def resolve_bot_credentials(bot: str) -> str:
+    """Return the API key for a bot name such as 'spike' or 'hubert'.
+
+    Looks up VOCECHAT_<BOT>_API_KEY (name upper-cased, dashes and spaces
+    become underscores). Raises ValueError with an actionable message when
+    the variable is missing.
+    """
+    suffix = bot.strip().upper().replace("-", "_").replace(" ", "_")
+    key = os.environ.get(f"VOCECHAT_{suffix}_API_KEY", "")
+    if not key:
+        raise ValueError(
+            f"VOCECHAT_{suffix}_API_KEY is not set. Add it to .env or pass "
+            "--api-key explicitly."
+        )
+    return key
+
+
 #=========================================================================#
 # Function Group: Command-line interface                                   #
 #=========================================================================#
 
 
+# Public Function: Print a list of message dicts in a compact readable form.
+def print_messages(messages: list[dict[str, Any]]) -> None:
+    """Print messages with timestamp, sender and content.
+
+    Handles both nested webhook-style payloads ({detail: {content}}) and flat
+    ones ({content}), and falls back to raw JSON for unknown shapes.
+    """
+    if not messages:
+        print("  (no messages)")
+        return
+
+    for msg in messages:
+        if not isinstance(msg, dict):
+            print(f"  {msg!r}")
+            continue
+
+        # The messages endpoint nests the payload the same way webhook events do.
+        detail = msg.get("detail")
+        if isinstance(detail, dict):
+            content = detail.get("content", "")
+        else:
+            content = msg.get("content", "")
+
+        # Fall back to raw JSON when the payload shape is not recognized.
+        if not content:
+            content = json.dumps(msg, ensure_ascii=False)
+
+        ts = msg.get("created_at")
+        ts_str = ""
+        if ts:
+            ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts / 1000))
+
+        print(f"  [mid={msg.get('mid', '?')} | {ts_str} | from={msg.get('from_uid', '?')}]")
+        print(f"    {content}")
+
+
 # Public Function: Parse CLI arguments and dispatch to the appropriate command.
 def main() -> None:
+    # Load .env from the working directory, then from the repo root so the
+    # client also works when invoked from outside the project.
     load_env_file()
+    load_env_file(str(Path(__file__).resolve().parents[2] / ".env"))
 
     parser = argparse.ArgumentParser(
         description="VoceChat Bot API client and webhook receiver"
     )
     parser.add_argument("--server", default=None, help="VoceChat server URL")
     parser.add_argument("--api-key", default=None, help="Bot API key")
+    parser.add_argument(
+        "--as",
+        dest="as_bot",
+        default=None,
+        help="Bot identity (e.g. spike, hubert): resolves VOCECHAT_<BOT>_API_KEY",
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -512,6 +633,17 @@ def main() -> None:
     p_gi = sub.add_parser("group-info", help="Get group info by GID")
     p_gi.add_argument("--gid", type=int, required=True)
 
+    # group-messages
+    p_gm = sub.add_parser("group-messages", help="Read recent messages of a channel")
+    p_gm.add_argument("--gid", type=int, required=True)
+    p_gm.add_argument("--context", type=int, default=None, help="Number of recent messages")
+    p_gm.add_argument("--user-id", type=int, default=None, help="Filter by sender uid")
+
+    # user-messages
+    p_um = sub.add_parser("user-messages", help="Read recent DMs with a user")
+    p_um.add_argument("--uid", type=int, required=True)
+    p_um.add_argument("--context", type=int, default=None, help="Number of recent messages")
+
     # webhook
     p_wh = sub.add_parser("webhook", help="Start webhook receiver for surveillance")
     p_wh.add_argument("--port", type=int, default=8010)
@@ -524,9 +656,18 @@ def main() -> None:
         run_webhook_server(port=args.port, log_file=args.log_file)
         return
 
-    # All other commands need a client.
+    # All other commands need a client. Resolve the bot identity first when
+    # one is given (e.g. --as spike -> VOCECHAT_SPIKE_API_KEY).
+    api_key = args.api_key
+    if args.as_bot:
+        try:
+            api_key = api_key or resolve_bot_credentials(args.as_bot)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+
     try:
-        client = VoceChatClient(server=args.server, api_key=args.api_key)
+        client = VoceChatClient(server=args.server, api_key=api_key)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -563,6 +704,21 @@ def main() -> None:
     elif args.command == "group-info":
         info = client.get_group(args.gid)
         print(json.dumps(info, indent=2, ensure_ascii=False))
+
+    elif args.command == "group-messages":
+        messages = client.get_group_messages(
+            gid=args.gid,
+            context=args.context,
+            user_id=args.user_id,
+        )
+        print_messages(messages)
+
+    elif args.command == "user-messages":
+        messages = client.get_user_messages(
+            uid=args.uid,
+            context=args.context,
+        )
+        print_messages(messages)
 
 
 if __name__ == "__main__":

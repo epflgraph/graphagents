@@ -1,24 +1,78 @@
 services:
 
+  # VoceChat server
   vocechat:
+    # Official VoceChat server image.
+    # "latest" will pull/use the latest available release.
     image: privoce/vocechat-server:latest
+
+    # Fixed container name for easier docker commands, e.g.:
+    #   docker logs vocechat-server
+    #   docker restart vocechat-server
+    #
+    # NOTE: Only one container on this Docker host can use this name.
     container_name: vocechat-server
+
+    # Automatically restart the container after crashes or host reboots,
+    # unless the container was explicitly stopped.
     restart: unless-stopped
+
     ports:
       # VoceChat listens on port 3000 inside the container.
-      # Expose it as 3009 on the host.
+      #
+      # Map host port 3009 -> container port 3000.
+      # VoceChat will therefore be reachable on:
+      #   http://<docker-host>:3009
       - "3009:3000"
-    environment:
-      # Refer to https://doc.voce.chat for additional configuration options.
-      - TZ=UTC
-    volumes:
-      - vocechat_data:/home/vocechat-server/data
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
 
-volumes:
-  vocechat_data:
+    environment:
+      # Timezone used inside the container.
+      - TZ=UTC
+
+    volumes:
+      # Persist ALL VoceChat application data on the host.
+      #
+      # Host:
+      #   /home/dockerhost/docker-volumes/vocechat
+      #
+      # Container:
+      #   /home/vocechat-server/data
+      #
+      # VoceChat stores its persistent application state under this
+      # data directory. Keeping it outside the container means the data
+      # survives container recreation, image upgrades, Docker Compose
+      # down/up cycles, etc.
+      #
+      # IMPORTANT:
+      # Removing/recreating the container does NOT remove this directory.
+      #
+      # Before switching an existing VoceChat installation to this bind
+      # mount, copy the contents of its existing Docker volume into this
+      # directory so that existing data is retained.
+      - /home/dockerhost/docker-volumes/vocechat:/home/vocechat-server/data
+
+    healthcheck:
+      # Periodically request VoceChat's HTTP endpoint from inside the
+      # container to verify that the server is responding.
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/"
+        ]
+
+      # Run the health check every 30 seconds.
+      interval: 30s
+
+      # Consider an individual health check failed after 10 seconds.
+      timeout: 10s
+
+      # Mark the container unhealthy after 3 consecutive failures.
+      retries: 3
+
+      # Give VoceChat 15 seconds to initialize before health-check
+      # failures start counting.
+      start_period: 15s

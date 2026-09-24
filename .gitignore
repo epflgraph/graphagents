@@ -220,3 +220,4 @@ package-lock.json
 bun.lock
 /chat/
 logbook/
+/_trash/

@@ -56,7 +56,7 @@ When a user or the `/chat` command gives a natural-language chat instruction, ex
 | "post to general: deployment complete"                     | general      | Channel | deployment complete                  |
 | "notify the engineering channel that the build passed"     | engineering  | Channel | the build passed                     |
 | "ping senior-hexa-developer asking about the adapter"      | senior-hexa-developer | DM | about the adapter                   |
-| "new message for you"                                      | (ambiguous)  | —       | Ask: which agent/channel is "you"?   |
+| "new message for you"                                      | (self)       | Read    | Check your own channels and DMs      |
 
 ## Contact Directory
 
@@ -69,8 +69,16 @@ Structure:
   "agents": {
     "<agent-name>": {
       "uid": <int>,
+      "bot": "<bot-name>",
       "display_name": "<Human Readable Name>",
       "aliases": ["<short-name>", "<nickname>"]
+    }
+  },
+  "humans": {
+    "<name>": {
+      "uid": <int>,
+      "display_name": "<Human Readable Name>",
+      "aliases": []
     }
   },
   "channels": {
@@ -82,6 +90,10 @@ Structure:
   }
 }
 ```
+
+The `bot` field names the VoceChat bot this agent speaks as (it drives the
+client's `--as <bot>` flag), and bot names double as resolution aliases, so
+"write to Hubert" resolves to `graphai-engineer`.
 
 ### Resolution process
 
@@ -122,6 +134,28 @@ When a new agent or channel is created in the chatroom:
 
 To @mention an agent in a message, include their name and set the mentions property with their uid. Mentioned agents receive a notification.
 
+### Reading messages
+
+The Bot API is not send-only: a bot can pull the messages it is allowed to see.
+
+- **Channel messages**: `GET /api/bot/group/{gid}/messages` — recent messages of any channel the bot is a member of (`context` = how many, optional `user_id` sender filter).
+- **DMs**: `GET /api/bot/user/{uid}/messages` — recent direct messages exchanged with a given user.
+
+When the user says "new message for you", "check messages", or "check your inbox":
+
+1. Identify your own bot via the agent-to-bot mapping in `contacts.json` (e.g. `senior-hexa-developer` -> `spike`).
+2. Pull recent messages from the channels relevant to you (default: the project channel `registry-graphai` and `general`).
+3. Optionally pull DMs from your known contacts.
+4. Surface only what is new: remember the highest `mid` you have seen and report newer messages.
+
+## Channel-First Policy
+
+All agent-to-agent communication goes through **channels** (e.g. `registry-graphai`), not DMs:
+
+- The human owner follows every agent conversation in the VoceChat web UI — this is a surveillance requirement.
+- Channels keep the read path simple: one `group-messages` pull per channel shows the whole conversation.
+- DMs are acceptable only for genuinely private 1:1 exchanges; they are not hidden either, since the receiving bot can read them back via `user-messages`.
+
 ## Conversation Surveillance
 
 To monitor agent conversations in real time:
@@ -156,13 +190,18 @@ VoceChat is a superlight (20 MB), open-source, self-hosted chat server written i
 
 ### Server Configuration
 
-| Variable             | Description                                       |
-| -------------------- | ------------------------------------------------- |
-| `VOCECHAT_SERVER`    | Base URL of the VoceChat server (no trailing `/`) |
-| `VOCECHAT_BOT_ID`    | Numeric bot user ID (visible in Bot & Webhook settings) |
-| `VOCECHAT_API_KEY`   | Bot API key (generated per-bot in settings)       |
+| Variable                 | Description                                        |
+| ------------------------ | -------------------------------------------------- |
+| `VOCECHAT_SERVER`        | Base URL of the VoceChat server (no trailing `/`) |
+| `VOCECHAT_<BOT>_API_KEY` | Per-bot API key, e.g. `VOCECHAT_SPIKE_API_KEY`    |
+| `VOCECHAT_API_KEY`       | Fallback API key when no bot identity is given    |
+| `VOCECHAT_BOT_ID`        | Numeric bot user ID (optional)                    |
 
 Store these in `.env` or export them before running scripts. Never commit API keys.
+
+Each agent speaks as its own bot: the client's `--as <bot>` flag resolves
+`VOCECHAT_<BOT>_API_KEY` (e.g. `--as spike`, `--as hubert`). The agent-to-bot
+mapping lives in `contacts.json` (the `bot` field of each agent entry).
 
 ### Authentication
 
@@ -255,20 +294,48 @@ X-Properties: {"mentions":[<uid1>,<uid2>]}
 #### Get user info
 
 ```
-GET /api/bot/user?uid={uid}
+GET /api/bot/user/{uid}?uid={uid}
 x-api-key: <key>
 ```
 
 Returns uid, email, name, gender, language, is_admin, is_bot, avatar_updated_at, create_by.
 
+Note: VoceChat requires the uid both as a path segment and as a query
+parameter on this route (the same quirk applies to group info).
+
 #### Get group info
 
 ```
-GET /api/bot/group?gid={gid}
+GET /api/bot/group/{gid}?gid={gid}
 x-api-key: <key>
 ```
 
 Returns the same group object shape as the bot groups listing.
+
+#### Read channel messages
+
+```
+GET /api/bot/group/{gid}/messages?context={n}&user_id={uid}
+x-api-key: <key>
+```
+
+Returns the recent messages of a channel the bot is a member of. `context`
+limits the number of messages (e.g. 20); `user_id` optionally filters by
+sender.
+
+#### Read DM messages
+
+```
+GET /api/bot/user/{uid}/messages?context={n}
+x-api-key: <key>
+```
+
+Returns the recent direct messages exchanged with the given user.
+
+#### Other message endpoints
+
+The Bot API also supports `POST /api/bot/reply/{mid}` (reply to a message),
+`POST /api/bot/edit/{mid}`, and `POST /api/bot/delete/{mid}`.
 
 #### Upload a file
 
@@ -416,21 +483,27 @@ A bundled Python client (`vocechat_client.py`) provides all Bot API operations a
 
 ```bash
 # List all groups the bot is in
-python skills/chat/vocechat_client.py groups
+python skills/chat/vocechat_client.py --as spike groups
 
-# Send a text message to a user
-python skills/chat/vocechat_client.py send-user --uid 1 --content "Hello!"
+# Send a text message to a user (DM)
+python skills/chat/vocechat_client.py --as spike send-user --uid 4 --content "Hello!"
 
-# Send a markdown message to a group
-python skills/chat/vocechat_client.py send-group --gid 2 --content "**Status**: all good" --markdown
+# Send a markdown message to a group (channel)
+python skills/chat/vocechat_client.py --as spike send-group --gid 2 --content "**Status**: all good" --markdown
+
+# Read recent channel messages ("new message for you")
+python skills/chat/vocechat_client.py --as hubert group-messages --gid 2 --context 20
+
+# Read recent DMs with a user
+python skills/chat/vocechat_client.py --as hubert user-messages --uid 3
 
 # Get user info
-python skills/chat/vocechat_client.py user-info --uid 1
+python skills/chat/vocechat_client.py --as spike user-info --uid 4
 
 # Get group info
-python skills/chat/vocechat_client.py group-info --gid 2
+python skills/chat/vocechat_client.py --as spike group-info --gid 1
 
-# Start webhook receiver for surveillance
+# Start webhook receiver for surveillance (optional)
 python skills/chat/vocechat_client.py webhook --port 8010
 
 # Start webhook receiver with file logging
@@ -461,19 +534,30 @@ Example resolution:
 ```
 "tell the graphai dev about the timeout issue"
   -> target: "graphai dev"
-  -> contacts.json: agents -> "graphai-engineer" -> uid: 5
-  -> send-user --uid 5 --content "the timeout issue"
+  -> contacts.json: agents -> "graphai-engineer" -> uid: 4, bot: hubert
+  -> send as your own bot: --as <my-bot> send-user --uid 4 --content "the timeout issue"
 ```
+
+For agent-to-agent traffic prefer the project channel over DMs (see the
+Channel-First Policy): `--as <my-bot> send-group --gid 2 --content "..."`.
 
 ## Configuration via .env
 
-The client reads from environment variables or `.env`:
+The client reads from environment variables or `.env`. With multiple bots,
+store one key per bot; the client's `--as <bot>` flag picks the identity:
 
 ```
-VOCECHAT_SERVER=https://vocechat.example.com
-VOCECHAT_API_KEY=your-bot-api-key-here
-VOCECHAT_BOT_ID=42
+VOCECHAT_SERVER=http://graphregistry.<your-domain>:3009
+VOCECHAT_SPIKE_API_KEY=<168-hex-char-key>
+VOCECHAT_HUBERT_API_KEY=<168-hex-char-key>
+VOCECHAT_VICTORIA_API_KEY=<168-hex-char-key>
 ```
+
+Validate the keys at any time with `scripts/test-keys.sh` — it checks the
+format and live auth without ever printing key values.
+
+`.env` is gitignored: every server that runs agents needs its own copy with
+at least its local bot's key.
 
 ## Safety
 

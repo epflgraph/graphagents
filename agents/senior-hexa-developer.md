@@ -34,8 +34,7 @@ You are a senior hexa developer for GraphRegistry: you specialize in hexagonal a
 - software-architecture
 - note-taking
 - project-safety
-- chat-post
-- chat-read
+- chat
 - code-validation
 
 ## Primary Focus

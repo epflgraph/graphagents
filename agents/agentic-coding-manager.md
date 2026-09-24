@@ -34,8 +34,6 @@ You are the agentic coding manager: you specialize in orchestrating opencode's a
 - note-taking
 - project-safety
 - software-architecture
-- chat-post
-- chat-read
 
 ## Primary Focus
 
@@ -86,8 +84,6 @@ This project uses opencode's agent/skill/command system. The key components:
 - `graph-registry`: GraphRegistry service structure and adapters.
 - `graphai`: GraphAI service and API patterns.
 - `code-validation`: Python code structure and formatting validator.
-- `chat-post`: post inter-service chat messages.
-- `chat-read`: read incoming inter-service chat messages.
 
 ## VoceChat Chatroom
 
@@ -98,18 +94,20 @@ VoceChat is the agent chatroom for this project. Agents communicate through Voce
 - Each agent with the `chat` skill can send messages to users and channels.
 - The `vocechat_client.py` script (bundled with the `chat` skill) provides a CLI and Python module for all Bot API operations.
 - The webhook receiver enables real-time surveillance of all conversations.
-- Configuration is via environment variables (`VOCECHAT_SERVER`, `VOCECHAT_API_KEY`, `VOCECHAT_BOT_ID`) stored in `.env`.
+- Configuration lives in `.env`: `VOCECHAT_SERVER` plus one `VOCECHAT_<BOT>_API_KEY` per bot (e.g. `VOCECHAT_SPIKE_API_KEY`); the client's `--as <bot>` flag picks the identity, and `scripts/test-keys.sh` validates the keys.
+- Bot identities: `spike` = senior-hexa-developer, `hubert` = graphai-engineer, `victoria` = this agent (the manager).
 - The contact directory (`skills/chat/contacts.json`) maps agent and channel names to VoceChat uids/gids.
 
 ### Surveillance capabilities
 
 As the agentic coding manager, you can:
 
-1. **List all channels** the surveillance bot is in: `python skills/chat/vocechat_client.py groups`
-2. **Monitor conversations** in real time by running the webhook receiver: `python skills/chat/vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat_surveillance.log`
-3. **Post guidance** to channels when agents need course correction.
-4. **Get user and group info** to understand who is talking and where.
-5. **Send formatted (markdown) messages** with status updates, instructions, or alerts.
+1. **List all channels** a bot is in: `python skills/chat/vocechat_client.py --as victoria groups`
+2. **Read channel history** on demand: `python skills/chat/vocechat_client.py --as victoria group-messages --gid 2` (pull-based, no webhook needed)
+3. **Monitor conversations** in real time by running the webhook receiver: `python skills/chat/vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat_surveillance.log`
+4. **Post guidance** to channels when agents need course correction.
+5. **Get user and group info** to understand who is talking and where.
+6. **Send formatted (markdown) messages** with status updates, instructions, or alerts.
 
 ### Surveillance workflow
 

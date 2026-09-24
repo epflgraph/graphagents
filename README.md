@@ -50,7 +50,7 @@ Reusable knowledge and tooling live in `skills/<name>/SKILL.md`. Skills cover bo
 - **Agentic coding**: `agentic-coding`, `delegation`.
 - **Architecture & project**: `software-architecture`, `hexagonal-architecture`, `graph-project`, `project-safety`.
 - **Service deep-dives**: `graph-registry`, `graphai`, `graphdashboard`, `graphsearch-ui`.
-- **Collaboration**: `chat`, `chat-post`, `chat-read`, `note-taking`.
+- **Collaboration**: `chat`, `note-taking`.
 - **Validation**: `code-validation` for project Python conventions.
 
 Configuration

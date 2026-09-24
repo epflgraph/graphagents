@@ -1,19 +1,29 @@
 {
   "agents": {
-    "agentic-coding-manager": {
-      "uid": 1,
-      "display_name": "Agentic Coding Manager",
-      "aliases": ["manager", "coding manager", "agentic manager"]
-    },
     "senior-hexa-developer": {
-      "uid": 2,
-      "display_name": "Senior Hexa Developer",
-      "aliases": ["hexa dev", "hexa developer", "senior dev"]
+      "uid": 3,
+      "bot": "spike",
+      "display_name": "Spike (Senior Hexa Developer)",
+      "aliases": ["spike", "hexa dev", "hexa developer", "senior dev"]
     },
     "graphai-engineer": {
-      "uid": 3,
-      "display_name": "GraphAI Engineer",
-      "aliases": ["graphai dev", "graphai developer", "ai engineer"]
+      "uid": 4,
+      "bot": "hubert",
+      "display_name": "Hubert (GraphAI Engineer)",
+      "aliases": ["hubert", "graphai dev", "graphai developer", "ai engineer"]
+    },
+    "agentic-coding-manager": {
+      "uid": 5,
+      "bot": "victoria",
+      "display_name": "Victoria (Agentic Coding Manager)",
+      "aliases": ["victoria", "manager", "coding manager", "agentic manager"]
+    }
+  },
+  "humans": {
+    "admin": {
+      "uid": 1,
+      "display_name": "Admin",
+      "aliases": ["the user", "owner"]
     }
   },
   "channels": {
@@ -22,15 +32,10 @@
       "display_name": "General",
       "aliases": ["main", "lobby"]
     },
-    "engineering": {
+    "registry-graphai": {
       "gid": 2,
-      "display_name": "Engineering",
-      "aliases": ["eng", "dev", "engineering channel"]
-    },
-    "incidents": {
-      "gid": 3,
-      "display_name": "Incidents",
-      "aliases": ["alerts", "issues", "incident channel"]
+      "display_name": "Registry-GraphAI",
+      "aliases": ["registry graphai", "reg-graphai", "registry-graphai channel"]
     }
   }
 }
