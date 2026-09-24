@@ -17,7 +17,7 @@ Before generating or editing any Python file in this project, run through this m
 - [ ] **Header**: first line is `# <project>/<relative/path>.py`.
 - [ ] **Imports**: contiguous block, no blank lines inside it, local imports last and alphabetically sorted.
 - [ ] **Class panels**: every `class ` is preceded by the exact 20-char panel.
-- [ ] **Lead comments**: functions and method should have a comment above them describing what the function or method does. As a rule of thumb, start the description with `# Function[Method]: Description` (respect the upper cases), `# Helper Function[Method]: Description`, `# Internal Function[Method]: Description`, `# Public Function[Method]: Description`, etc.
+- [ ] **Lead comments**: functions and methods should have a comment block above them describing what the function or method does. As a rule of thumb, start the description with `# Function[Method]: Description` (respect the upper cases), `# Helper Function[Method]: Description`, `# Internal Function[Method]: Description`, `# Public Function[Method]: Description`, etc. You can use other function or method describers if they make sense. The block may span multiple consecutive comment lines; at least one line must carry the tag, and no blank line may separate the block from the definition or its decorators. `async def` definitions follow the same rule.
 - [ ] **Meaningful comments**: comments are meant to allow developers to go through the code, and understand what it does with explicitly reading the actual code lines. This means comments should actually be meaningful, and absolutely not low-IQ comments like "# Function: get create table \n def get_create_table(...)".
 - [ ] **Chunk comments**: every code chunk after a blank line starts with a comment that explains *why* the chunk exists, not what the code does.
 - [ ] **Comment length**: no comment line exceeds 128 columns.
@@ -73,6 +73,8 @@ Example:
 
 - Dunder methods such as `__init__` are excluded from this rule.
 - When decorators are present, place the comment immediately before the first decorator.
+- The lead comment may span multiple consecutive comment lines. At least one line of the block must open with the required prefix, and no blank line may separate the block from the definition or its decorators.
+- The same rules apply to `async def` definitions.
 
 Example:
 
@@ -92,6 +94,8 @@ def _row_to_edge(row):
 ~~~
 
 - When decorators are present, place the comment immediately before the first decorator.
+- The lead comment may span multiple consecutive comment lines. At least one line of the block must open with the required prefix, and no blank line may separate the block from the definition or its decorators.
+- The same rules apply to `async def` definitions.
 
 Example:
 
@@ -136,9 +140,9 @@ return NodeList(item_list=nodes)
 
 ### Comment length
 
-- Comment lines must not exceed 92 columns.
+- Comment lines must not exceed 128 columns.
 - Tabs count according to their expanded display width.
-- If a comment would exceed 92 columns, split it across multiple comment lines.
+- If a comment would exceed 128 columns, split it across multiple comment lines.
 
 Example:
 
@@ -231,10 +235,10 @@ When creating a new Python file, mirror this layout. Do not leave sections empty
 # graphregistry/adapters/persistence/mysql/repositories/example.py
 from __future__ import annotations
 from typing import TYPE_CHECKING
-
 from graphregistry.adapters.persistence.mysql.session import MySQLSession
 from graphregistry.domain.models.entities.mdl_example import Example
 
+# Import GraphDB only during type checking to avoid a runtime circular import.
 if TYPE_CHECKING:
     from graphdb.core.graphdb import GraphDB
 
@@ -258,11 +262,16 @@ class ExampleRepository:
 
 ## Running the validator
 
-The validator is bundled with this skill:
+The validator is bundled with this skill and lives in the skill's base directory:
 
 ~~~bash
-python .opencode/skills/code-validation/code_validator.py <path/to/file.py>
+python ~/.config/opencode/skills/code-validation/code_validator.py <path/to/file.py>
 ~~~
+
+The command exits with code 0 when the file passes, 1 when style violations are
+found, and 2 when the file cannot be validated at all (missing `pyproject.toml`,
+unreadable file, or syntax error), so it can gate CI, pre-commit hooks, and
+shell chains.
 
 The target file must belong to a project containing a `pyproject.toml` in one of its parent directories.
 
@@ -281,13 +290,13 @@ The validator searches upward from the target file for the nearest
 A mechanical fixer is also bundled with this skill:
 
 ~~~bash
-python .opencode/skills/code-validation/code_fixer.py <path/to/file.py>
+python ~/.config/opencode/skills/code-validation/code_fixer.py <path/to/file.py>
 ~~~
 
 By default it runs in dry-run mode and prints the changes it would make. Use `--write` to apply the changes in place:
 
 ~~~bash
-python .opencode/skills/code-validation/code_fixer.py --write <path/to/file.py>
+python ~/.config/opencode/skills/code-validation/code_fixer.py --write <path/to/file.py>
 ~~~
 
 Additional options:

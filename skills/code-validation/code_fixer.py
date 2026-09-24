@@ -48,7 +48,9 @@ FUNCTION_COMMENT_PREFIXES = (
     "# Public Method: ",
 )
 
-MAX_COMMENT_LENGTH = 112
+# Maximum comment line length. Must match MAX_COMMENT_LENGTH in code_validator.py so
+# that fixer output always passes validation.
+MAX_COMMENT_LENGTH = 128
 PROJECT_NAME = "graphregistry"
 
 
@@ -207,16 +209,19 @@ def fix_class_panels(lines: list[str]) -> list[str]:
     while i < len(lines):
         line = lines[i]
         if line.strip().startswith("class "):
+            # Panels carry the indentation of their class so nested classes get
+            # properly indented panels, which the validator accepts.
+            indent = _indentation(line)
             # Check whether the previous three lines form a class panel.
             if i >= 3 and _looks_like_class_panel(result[-3:]):
-                # Replace the existing panel with the exact template.
-                result[-3:] = CLASS_PANEL
+                # Replace the existing panel with the exact template, re-indented.
+                result[-3:] = [indent + panel_line for panel_line in CLASS_PANEL]
             else:
                 # Insert a panel. Make sure there is a blank line before it
                 # when it is not at the very start of the file.
                 if result and not _is_blank(result[-1]):
                     result.append("")
-                result.extend(CLASS_PANEL)
+                result.extend(indent + panel_line for panel_line in CLASS_PANEL)
             result.append(line)
             i += 1
         else:
@@ -226,8 +231,8 @@ def fix_class_panels(lines: list[str]) -> list[str]:
 
 
 def _def_name(line: str) -> str | None:
-    """Extract the function/method name from a 'def ...' line."""
-    match = re.match(r"\s*def\s+(\w+)", line)
+    """Extract the function/method name from a 'def ...' or 'async def ...' line."""
+    match = re.match(r"\s*(?:async\s+)?def\s+(\w+)", line)
     return match.group(1) if match else None
 
 
@@ -323,10 +328,16 @@ def fix_method_function_comments(lines: list[str]) -> list[str]:
             decorators.insert(0, result[k])
             k -= 1
 
-        comment_idx = k
-        has_prefix = (
-            comment_idx >= 0
-            and result[comment_idx].lstrip().startswith(FUNCTION_COMMENT_PREFIXES)
+        # Walk back over the whole contiguous comment block, mirroring the validator:
+        # a tagged line anywhere in the block counts as an existing lead comment, so
+        # multi-line lead comments are never duplicated.
+        block_end = k
+        while block_end >= 0 and result[block_end].lstrip().startswith("#"):
+            block_end -= 1
+        comment_block = result[block_end + 1 : k + 1]
+        has_prefix = any(
+            comment_line.lstrip().startswith(FUNCTION_COMMENT_PREFIXES)
+            for comment_line in comment_block
         )
 
         if not has_prefix:
@@ -368,10 +379,13 @@ def fix_comment_prefixes(lines: list[str]) -> list[str]:
                 if stripped.startswith("# Function: ")
                 else "# Method: "
             )
-            # Find the target definition, skipping decorators and blank lines.
+            # Find the target definition, skipping decorators, blank lines, and
+            # continuation comment lines of multi-line lead comments.
             j = i + 1
             while j < len(lines) and (
-                lines[j].lstrip().startswith("@") or _is_blank(lines[j])
+                lines[j].lstrip().startswith("@")
+                or _is_blank(lines[j])
+                or lines[j].lstrip().startswith("#")
             ):
                 j += 1
             target = lines[j] if j < len(lines) else ""
@@ -439,12 +453,12 @@ def _extract_lead_description(line: str) -> str:
 
 
 def collapse_lead_comment_panels(lines: list[str]) -> list[str]:
-    """Flatten comment panels around defs to a single lead comment.
+    """Collapse lead-comment blocks that contain duplicate tags.
 
-    Files sometimes wrap a lead comment in a decorative border (e.g. #----#).
-    The validator requires the lead comment to be the line immediately before
-    the definition, so this pass removes borders/duplicates and keeps one
-    correct lead comment.
+    The validator accepts multi-line lead-comment blocks as long as at least one
+    line carries a type tag, so blocks with a single tag are left untouched
+    (including their continuation lines and decorative borders). This pass only
+    rewrites blocks that contain more than one tagged line, keeping the last one.
     """
     # Find all def lines (bottom-up so index changes are safe).
     def_indices = [
@@ -483,7 +497,9 @@ def collapse_lead_comment_panels(lines: list[str]) -> list[str]:
             if line.lstrip().startswith("# Internal Function:")
             or line.lstrip().startswith("# Public Method:")
         ]
-        if not lead_positions:
+        # A single tagged line already satisfies the validator; leave the block
+        # (and its continuation lines) exactly as written.
+        if len(lead_positions) < 2:
             continue
 
         # Use the last lead comment found; remove any borders/duplicates.

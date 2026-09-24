@@ -1,0 +1,24 @@
+services:
+
+  vocechat:
+    image: privoce/vocechat-server:latest
+    container_name: vocechat-server
+    restart: unless-stopped
+    ports:
+      # VoceChat listens on port 3000 inside the container.
+      # Expose it as 3009 on the host.
+      - "3009:3000"
+    environment:
+      # Refer to https://doc.voce.chat for additional configuration options.
+      - TZ=UTC
+    volumes:
+      - vocechat_data:/home/vocechat-server/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  vocechat_data:

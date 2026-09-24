@@ -1,26 +1,72 @@
-# graphregistry/.opencode/skills/code-validation/code_validator.py
-import argparse, tomllib, rich, io, tokenize, ast
+# ~/.config/opencode/skills/code-validation/code_validator.py
+import argparse, ast, io, sys, tokenize, tomllib
+import rich
 from pathlib import Path
+
+# Exit codes used by this script so that CI, pre-commit hooks, and shell chains can
+# gate on the result: 0 = validation passed, 1 = style violations found,
+# 2 = the file could not be validated at all (missing project, unreadable, syntax error).
+EXIT_PASS            = 0
+EXIT_VIOLATIONS      = 1
+EXIT_CANNOT_VALIDATE = 2
+
+# Maximum allowed length of a comment line, in columns.
+# NOTE: code_fixer.py currently wraps comments at 112 columns and SKILL.md mentions
+# both 92 and 128 in different sections. These values must be unified in a follow-up
+# pass; 128 is kept here so that fixer output always passes this check.
+MAX_COMMENT_LENGTH = 128
 
 # Set up argument parser to accept a file path as a command-line argument
 parser = argparse.ArgumentParser()
 parser.add_argument("path", type=Path)
 args = parser.parse_args()
 
+#--------------------------------------------------------------------------------------------#
+# Preliminary checks: the file must be readable and belong to a project with a pyproject.toml #
+#--------------------------------------------------------------------------------------------#
+
+# Reject paths that do not point at a regular file, with a clean message instead of a traceback
+if not args.path.is_file():
+    rich.print(f"❌ Cannot validate [cyan]{args.path}[/cyan]: not a file.")
+    sys.exit(EXIT_CANNOT_VALIDATE)
+
+# Read the target file; decoding or I/O problems are validation blockers, not violations
+try:
+    text = args.path.read_text(encoding="utf-8")
+except (OSError, UnicodeDecodeError) as read_error:
+    rich.print(f"❌ Cannot validate [cyan]{args.path}[/cyan]: {read_error}")
+    sys.exit(EXIT_CANNOT_VALIDATE)
+
 # Read the file and split it into lines
-text = args.path.read_text(encoding="utf-8")
 text_split = text.splitlines()
 
 # Get project name from pyproject.toml
 pyproject_path = next((parent / "pyproject.toml" for parent in args.path.resolve().parents if (parent / "pyproject.toml").exists()), None)
-assert pyproject_path is not None, f"pyproject.toml not found in any parent of {args.path}"
+if pyproject_path is None:
+    rich.print(f"❌ Cannot validate [cyan]{args.path}[/cyan]: no pyproject.toml found in any parent directory.")
+    sys.exit(EXIT_CANNOT_VALIDATE)
+
 with pyproject_path.open("rb") as f:
     pyproject = tomllib.load(f)
 project_name = pyproject.get("project", {}).get("name")
-assert project_name is not None, "Project name not found in [project] section of pyproject.toml"
+if project_name is None:
+    rich.print(f"❌ Project name not found in [project] section of {pyproject_path}")
+    sys.exit(EXIT_CANNOT_VALIDATE)
 
-# Initialize a list to collect assertion errors
-assertion_errors = []
+# Parse the file once. The AST is reused by the alignment rules and doubles as the
+# syntax gate, so broken files fail with a clean message instead of a mid-check crash.
+try:
+    tree = ast.parse(text)
+    tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+except (SyntaxError, tokenize.TokenError, ValueError) as parse_error:
+    lineno  = getattr(parse_error, "lineno", None)
+    message = getattr(parse_error, "msg", None) or str(parse_error)
+    location = f" at line {lineno}" if lineno is not None else ""
+    rich.print(f"❌ Cannot validate [cyan]{args.path}[/cyan]: syntax error{location}: {message}")
+    sys.exit(EXIT_CANNOT_VALIDATE)
+
+# Initialize a list to collect validation errors
+validation_errors = []
 
 #========================================================================================#
 # Rule check: First line must be the file path as a comment (starting with project name) #
@@ -36,9 +82,23 @@ if local_path.parts[0] != project_name:
 # Check that the first line of the file matches the expected format
 expected_first_line = f"# {local_path.as_posix()}"
 
-# Assert that the first line of the file matches the expected format
+# Report a violation when the first line does not match the expected header format
 if text_split[0] != expected_first_line:
-    assertion_errors.append(f"First line should be '{expected_first_line}' but got '{text_split[0]}'")
+    validation_errors.append(f"First line should be '{expected_first_line}' but got '{text_split[0]}'")
+
+#=================================================================================#
+# Shared input: lines occupied by multiline strings, used by several rules below #
+#=================================================================================#
+
+# Find all lines occupied by multiline strings/docstrings so that the line-based rules
+# (class/def detection, chunk splitting, comment length) never match against string
+# content. Single-line strings are irrelevant because they cannot span a chunk boundary.
+multiline_string_lines = set()
+for token in tokens:
+    if token.type == tokenize.STRING and token.start[0] != token.end[0]:
+        multiline_string_lines.update(
+            range(token.start[0] - 1, token.end[0])
+        )
 
 #====================================================================#
 # Rule check: There must be no line breaks between import statements #
@@ -55,12 +115,15 @@ for i, line in enumerate(text_split[1:], start=1):
             n_linebreaks += 1
     else:
         break
-if text_split[last_import_index]=="":
+
+# Guard against very small files where the import section is empty, then drop the
+# trailing blank line that simply separates the import section from the first chunk
+if last_import_index < len(text_split) and text_split[last_import_index] == "":
     n_linebreaks -= 1
 
-# Assert that there are no line breaks between import statements
+# Report a violation when blank lines interrupt the import section
 if n_linebreaks != 0:
-    assertion_errors.append(f"Expected no line breaks between import statements, but found {n_linebreaks}")
+    validation_errors.append(f"Expected no line breaks between import statements, but found {n_linebreaks}")
 
 #===========================================================================#
 # Rule check: Local module imports must be at the end of the import section #
@@ -78,12 +141,11 @@ for line in import_lines:
     # Determine if the current line is a local import (from the project)
     is_local_import = (line.startswith(f"import {project_name}") or line.startswith(f"from {project_name}"))
 
-    # If we have found a local import, set the flag to True. If we find a
-    # non-local import after a local import, raise an AssertionError.
+    # Once the local-import section has started, no non-local import may follow it
     if is_local_import:
         found_local_import = True
     elif found_local_import:
-        assertion_errors.append(
+        validation_errors.append(
             f"Non-local import found after local imports: '{line}'. "
             f"All imports from '{project_name}' must be at the end of the import section."
         )
@@ -95,46 +157,60 @@ for line in import_lines:
 # Get all local import lines from the import section
 local_import_lines = [line for line in import_lines if line.startswith(f"import {project_name}") or line.startswith(f"from {project_name}")]
 
-# Check that local imports are in alphabetical order
+# Report a violation when local imports are not sorted alphabetically
 if local_import_lines != sorted(local_import_lines):
-    assertion_errors.append(f"Local imports are not in alphabetical order.")
+    validation_errors.append(f"Local imports are not in alphabetical order.")
 
 #===================================#
 # Rule check: No double line breaks #
 #===================================#
 
-# Check for double line breaks
+# Report every occurrence of two consecutive blank lines
 for i in range(1, len(text_split)):
     if text_split[i] == "" and text_split[i - 1] == "":
-        assertion_errors.append(f"Double line break found at line {i + 1}.")
+        validation_errors.append(f"Double line break found at line {i + 1}.")
 
 #===============================================================#
 # Rule check: Class definition comment panels before each class #
 #===============================================================#
 
-# Class pannel template
+# Class panel template
 class_panel_template = [
     "#==================#",
     "# Class Definition #",
     "#==================#"
 ]
 
-# Locate all class definitions in the file
-class_indices = [i for i, line in enumerate(text_split) if line.strip().startswith("class ")]
+# Locate all class definitions in the file, ignoring lines inside multiline strings
+class_indices = [
+    i
+    for i, line in enumerate(text_split)
+    if i not in multiline_string_lines and line.strip().startswith("class ")
+]
 
-# Check that each class definition is preceded by the class panel comment
+# Check that each class definition is preceded by the class panel comment. The panel
+# may carry the same indentation as its class so that nested classes can comply, so
+# indentation is stripped before comparing against the template.
 for class_index in class_indices:
-    # Check if the class panel is present before the class definition
-    if class_index < len(class_panel_template) or text_split[class_index - len(class_panel_template):class_index] != class_panel_template:
+
+    # A class near the top of the file cannot carry a three-line panel above it
+    if class_index < len(class_panel_template):
+        panel_is_valid = False
+    else:
+        preceding_lines = text_split[class_index - len(class_panel_template):class_index]
+        panel_is_valid = [line.strip() for line in preceding_lines] == class_panel_template
+
+    # Report a violation when the panel is missing or malformed
+    if not panel_is_valid:
         formatted_panel = "  " + "\n  ".join(class_panel_template)
-        assertion_errors.append(
+        validation_errors.append(
             f"Class definition at line {class_index + 1} is not preceded by the required class panel comment:"
             f"[green]\n{formatted_panel}[/green]"
         )
 
-#=====================================================================#
-# Rule check: Function/method definition comment before each function #
-#=====================================================================#
+#=====================================================================================#
+# Rule check: Function/method definitions must be introduced by a tagged lead comment #
+#=====================================================================================#
 
 # Define the allowed function/method comment prefixes
 function_comment_prefixes = (
@@ -148,55 +224,59 @@ function_comment_prefixes = (
     "# Public Method: ",
 )
 
-# Locate all function and method definitions in the file
+# Locate all function and method definitions, including 'async def', ignoring lines
+# inside multiline strings
 function_indices = [
     i
     for i, line in enumerate(text_split)
-    if line.strip().startswith("def ")
+    if i not in multiline_string_lines
+    and (line.strip().startswith("def ") or line.strip().startswith("async def "))
 ]
 
-# Check that each function/method definition is preceded by an allowed descriptive comment
+# Check that each definition is introduced by a contiguous comment block containing at
+# least one line with an allowed type tag. The block must sit directly above the
+# definition or its decorators, with no blank line in between.
 for func_index in function_indices:
-    comment_index = func_index - 1
+    cursor = func_index - 1
 
-    # Walk backwards over decorators
-    while comment_index >= 0 and text_split[comment_index].strip().startswith("@"):
-        comment_index -= 1
+    # Walk backwards over decorators so the lead comment is found above them
+    while cursor >= 0 and text_split[cursor].strip().startswith("@"):
+        cursor -= 1
 
-    # Get the descriptive comment before the function/decorators
-    comment = text_split[comment_index].strip() if comment_index >= 0 else ""
+    # Walk backwards over the contiguous comment block that introduces the definition
+    block_end = cursor
+    while block_end >= 0 and text_split[block_end].strip().startswith("#"):
+        block_end -= 1
+    comment_block = text_split[block_end + 1:cursor + 1]
 
-    # Check for one of the allowed function/method comment types
-    if not comment.startswith(function_comment_prefixes):
+    # The block passes when any of its lines opens with an allowed type tag; this
+    # accepts multi-line descriptions that continue below the tagged first line
+    block_is_tagged = any(
+        comment_line.strip().startswith(function_comment_prefixes)
+        for comment_line in comment_block
+    )
+
+    # Report a violation when there is no adjacent comment block or no tagged line
+    if not comment_block or not block_is_tagged:
         allowed_formats = ", ".join(prefix + "<Description>" for prefix in function_comment_prefixes)
-        assertion_errors.append(
-            f"Function/method definition at line {func_index + 1} is not preceded "
+        validation_errors.append(
+            f"Function/method definition at line {func_index + 1} is not introduced "
             f"by an allowed descriptive comment. Expected one of: "
-            f"[green]{allowed_formats}[/green]"
+            f"[green]{allowed_formats}[/green] "
+            f"The comment block must sit directly above the definition or its "
+            f"decorators, with no blank line in between."
         )
 
 #========================================================#
 # Rule check: Every code chunk must start with a comment #
 #========================================================#
 
-# Find all lines occupied by multiline strings/docstrings
-multiline_string_lines = set()
-
-# Use the tokenize module to identify multiline strings/docstrings
-tokens = tokenize.generate_tokens(io.StringIO(text).readline)
-
-# Update the set of lines occupied by multiline strings/docstrings
-for token in tokens:
-    if token.type == tokenize.STRING and token.start[0] != token.end[0]:
-        multiline_string_lines.update(
-            range(token.start[0] - 1, token.end[0])
-        )
-
-# Split the file into chunks separated by blank lines
+# Split the file into chunks separated by blank lines, ignoring lines that belong to
+# multiline strings/docstrings
 chunks = []
 current_chunk = []
 
-# Iterate through the lines and group them into chunks, ignoring lines that are part of multiline strings/docstrings.
+# Iterate through the lines and group them into chunks
 for i, line in enumerate(text_split):
 
     # Ignore lines belonging to multiline strings/docstrings
@@ -215,32 +295,31 @@ for i, line in enumerate(text_split):
 if current_chunk:
     chunks.append(current_chunk)
 
-# Check that every chunk starts with a comment
+# Check that every chunk starts with a comment line
 for chunk in chunks:
     chunk_start_index, chunk_start_line = chunk[0]
 
     if not chunk_start_line.strip().startswith("#"):
-        assertion_errors.append(
-            f"Code chunk starting at line {chunk_start_index + 1} is not preceded "
-            f"by an explanatory comment."
+        validation_errors.append(
+            f"Code chunk starting at line {chunk_start_index + 1} does not start with "
+            f"an explanatory comment. Place the comment directly above the chunk, with "
+            f"no blank line between the comment and the code."
         )
 
-#===============================================================#
-# Rule check: Comments must not exceed N characters             #
-#===============================================================#
+#================================================================#
+# Rule check: Comments must not exceed the maximum column width #
+#================================================================#
 
-# Set the maximum allowed length for comments
-max_comment_length = 128
-
-# Check each line to see if it is a comment and exceeds the maximum length
+# Check each comment line against the shared maximum length, ignoring lines inside
+# multiline strings because they are string content rather than comments
 for i, line in enumerate(text_split):
     stripped_line = line.lstrip()
 
-    # Only check comment lines
-    if stripped_line.startswith("#"):
-        if len(line) > max_comment_length:
-            assertion_errors.append(
-                f"Comment at line {i + 1} exceeds {max_comment_length} characters "
+    # Only check real comment lines
+    if stripped_line.startswith("#") and i not in multiline_string_lines:
+        if len(line) > MAX_COMMENT_LENGTH:
+            validation_errors.append(
+                f"Comment at line {i + 1} exceeds {MAX_COMMENT_LENGTH} characters "
                 f"({len(line)} characters): [green]{line}[/green]"
                 f"\n  Use line breaks or rephrase the comment to fit within the limit."
             )
@@ -249,7 +328,7 @@ for i, line in enumerate(text_split):
 # Rule check: Function Group panels must have the correct format #
 #================================================================#
 
-# Define the expected format for Method Group panels
+# Define the expected format for Function Group panels
 panel_inner_width = 64
 panel_border = f"#{'=' * panel_inner_width}#"
 panel_prefix = "# Function Group: "
@@ -257,29 +336,30 @@ panel_prefix = "# Function Group: "
 # Check each line to see if it starts with the Function Group panel comment
 for i, line in enumerate(text_split):
     if line.strip().startswith("# Function Group:"):
-        indentation = line[:len(line) - len(line.lstrip())]
 
-        # Remove indentation before validating the panel
+        # Extract the indentation so the panel can be validated without it
+        indentation = line[:len(line) - len(line.lstrip())]
         panel_line = line[len(indentation):]
 
-        # Check that the description fits within the panel
+        # Extract the description from the panel line
         description = panel_line.removeprefix(panel_prefix).removesuffix("#").rstrip()
+
+        # Build the expected middle line, padded to the panel width
         expected_middle = f"{panel_prefix}{description}".ljust(panel_inner_width + 1) + "#"
 
-        # Build the expected panel
+        # Build the full expected panel
         expected_panel = [
             indentation + panel_border,
             indentation + expected_middle,
             indentation + panel_border,
         ]
 
-        # Get the actual panel
+        # Compare against the actual panel surrounding the current line
         actual_panel = text_split[i - 1:i + 2]
 
         if actual_panel != expected_panel:
             formatted_panel = "\n  ".join(expected_panel)
-
-            assertion_errors.append(
+            validation_errors.append(
                 f"Function Group panel at line {i + 1} has an invalid format. "
                 f"Expected:[green]\n  {formatted_panel}[/green]"
             )
@@ -296,31 +376,30 @@ panel_prefix = "# Method Group: "
 # Check each line to see if it starts with the Method Group panel comment
 for i, line in enumerate(text_split):
     if line.strip().startswith("# Method Group:"):
-        indentation = line[:len(line) - len(line.lstrip())]
 
-        # Remove indentation before validating the panel
+        # Extract the indentation so the panel can be validated without it
+        indentation = line[:len(line) - len(line.lstrip())]
         panel_line = line[len(indentation):]
 
-        # Extract the description
+        # Extract the description from the panel line
         description = panel_line.removeprefix(panel_prefix).removesuffix("#").rstrip()
 
-        # Build the expected middle line
+        # Build the expected middle line, padded to the panel width
         expected_middle = f"{panel_prefix}{description}".ljust(panel_inner_width + 1) + "#"
 
-        # Build the expected panel
+        # Build the full expected panel
         expected_panel = [
             indentation + panel_border,
             indentation + expected_middle,
             indentation + panel_border,
         ]
 
-        # Get the actual panel
+        # Compare against the actual panel surrounding the current line
         actual_panel = text_split[i - 1:i + 2]
 
-        # Check if the actual panel matches the expected panel
         if actual_panel != expected_panel:
             formatted_panel = "\n  ".join(expected_panel)
-            assertion_errors.append(
+            validation_errors.append(
                 f"Method Group panel at line {i + 1} has an invalid format. "
                 f"Expected:[green]\n  {formatted_panel}[/green]"
             )
@@ -328,9 +407,6 @@ for i, line in enumerate(text_split):
 #===================================================================#
 # Rule check: Keyword argument "=" signs must be vertically aligned #
 #===================================================================#
-
-# Parse the code into an Abstract Syntax Tree (AST) to analyze function calls and their keyword arguments
-tree = ast.parse(text)
 
 # Walk through the AST nodes to find function calls with keyword arguments
 for node in ast.walk(tree):
@@ -387,7 +463,6 @@ for node in ast.walk(tree):
             # Generate the expected lines with vertically aligned "=" signs
             expected_lines = []
 
-            # Generate the expected lines with vertically aligned "=" signs
             for keyword in group:
                 line = text_split[keyword.lineno - 1]
                 indentation = line[:len(line) - len(line.lstrip())]
@@ -395,7 +470,7 @@ for node in ast.walk(tree):
                 # Everything after the first "="
                 value = line.split("=", 1)[1].lstrip()
 
-                # Append the expected line with the keyword argument name left-justified to the maximum name length and the value after the "=" sign
+                # Append the expected line with the keyword argument name left-justified to the maximum name length
                 expected_lines.append(
                     f"{indentation}{keyword.arg.ljust(max_name_length)} = {value}"
                 )
@@ -403,8 +478,8 @@ for node in ast.walk(tree):
             # Join the expected lines with a newline and two spaces for formatting
             formatted_lines = "\n  ".join(expected_lines)
 
-            # Append an assertion error message indicating that the keyword arguments must have vertically aligned "=" signs, along with the expected format
-            assertion_errors.append(
+            # Report the misaligned keyword arguments along with the expected format
+            validation_errors.append(
                 f"Keyword arguments starting at line {group[0].lineno} "
                 f"must have vertically aligned '=' signs. "
                 f"Expected:[green]\n  {formatted_lines}[/green]"
@@ -414,9 +489,6 @@ for node in ast.walk(tree):
 # Rule check: Dict value separators ":" must be vertically aligned
 #================================================================#
 
-# Parse the code into an Abstract Syntax Tree (AST) to analyze dictionary definitions and their key-value pairs
-tree = ast.parse(text)
-
 # Walk through the AST nodes to find dictionary definitions with key-value pairs
 for node in ast.walk(tree):
     if not isinstance(node, ast.Dict) or len(node.keys) < 2:
@@ -425,7 +497,7 @@ for node in ast.walk(tree):
     # Only check dictionary entries written on separate lines
     entries = []
 
-    # Iterate through the keys of the dictionary node to find string-literal keys that are written on a single line
+    # Iterate through the keys of the dictionary node to find string-literal keys written on a single line
     for key in node.keys:
         # Ignore **mapping entries
         if key is None:
@@ -456,9 +528,9 @@ for node in ast.walk(tree):
         # Append the key, line, and colon column to the entries list for further processing
         entries.append(
             {
-                "key": key,
-                "line": line,
-                "colon_column": colon_column,
+                "key"          : key,
+                "line"         : line,
+                "colon_column" : colon_column,
             }
         )
 
@@ -506,7 +578,6 @@ for node in ast.walk(tree):
         # Generate the expected lines with vertically aligned ":" separators
         expected_lines = []
 
-        # Generate the expected lines with vertically aligned ":" separators
         for entry in group:
             key = entry["key"]
             line = entry["line"]
@@ -518,7 +589,7 @@ for node in ast.walk(tree):
             # Everything after the existing ":"
             value_text = line[entry["colon_column"] + 1:].lstrip()
 
-            # Append the expected line with the key left-justified to the maximum key width and the value after the ":" separator
+            # Append the expected line with the key left-justified to the maximum key width
             expected_lines.append(
                 f"{indentation}{key_text.ljust(max_key_width)} : {value_text}"
             )
@@ -526,21 +597,25 @@ for node in ast.walk(tree):
         # Join the expected lines with a newline and two spaces for formatting
         formatted_lines = "\n  ".join(expected_lines)
 
-        # Append an assertion error message indicating that the dictionary entries must have vertically aligned ":" separators, along with the expected format
-        assertion_errors.append(
+        # Report the misaligned dictionary entries along with the expected format
+        validation_errors.append(
             f"Dictionary entries starting at line {group[0]['key'].lineno} "
             f"must have vertically aligned ':' separators. "
             f"Expected:[green]\n  {formatted_lines}[/green]"
         )
 
-#======================================================================#
-# Print the assertion errors if any, otherwise print a success message #
-#======================================================================#
-if assertion_errors:
+#=======================================================================#
+# Print the validation errors if any, otherwise print a success message #
+#=======================================================================#
+if validation_errors:
     rich.print(f"\n❌ Code validation [red]FAILED[/red] for [cyan]{args.path}[/cyan].")
     rich.print("\n[bold]Reasons:[/bold]")
-    for error in assertion_errors:
+    for error in validation_errors:
         rich.print(f"- {error}")
     rich.print('')
-else:
-    rich.print(f"✅ Code validation [green]PASSED[/green] for [cyan]{args.path}[/cyan].")
+
+    # Non-zero exit code so CI, pre-commit hooks, and shell chains can gate on the result
+    sys.exit(EXIT_VIOLATIONS)
+
+rich.print(f"✅ Code validation [green]PASSED[/green] for [cyan]{args.path}[/cyan].")
+sys.exit(EXIT_PASS)

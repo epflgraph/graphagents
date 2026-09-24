@@ -21,13 +21,13 @@
                 "moonshotai/Kimi-K2.7-Code": {
                     "name": "Kimi K2.7 Code"
                 },
-                "zai-org/GLM-5.2": {
-                    "name": "Zai GLM 5.2"
+                "zai-org/GLM-5.3": {
+                    "name": "Zai GLM 5.3"
                 }
             }
         }
     },
-    "model": "Kimi-K2.7-Code",
+    "model": "zai-org/GLM-5.3",
     "permission": {
         "bash": {
             "pwd": "allow",
