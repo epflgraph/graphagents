@@ -221,3 +221,4 @@ bun.lock
 /chat/
 logbook/
 /_trash/
+outline.env

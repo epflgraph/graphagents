@@ -76,3 +76,81 @@ services:
       # Give VoceChat 15 seconds to initialize before health-check
       # failures start counting.
       start_period: 15s
+
+  # Outline knowledge base
+  outline:
+    image: docker.getoutline.com/outlinewiki/outline:latest
+    container_name: outline
+    restart: unless-stopped
+
+    ports:
+      # VoceChat: http://host:3009
+      # Outline:   http://host:3010
+      - "3010:3000"
+
+    environment:
+      NODE_ENV: production
+
+      # Public URL users/agents use to reach Outline.
+      URL: ${OUTLINE_URL}
+
+      # Outline itself listens on 3000 inside the container.
+      PORT: 3000
+
+      SECRET_KEY: ${OUTLINE_SECRET_KEY}
+      UTILS_SECRET: ${OUTLINE_UTILS_SECRET}
+
+      DATABASE_URL: postgres://outline:${OUTLINE_POSTGRES_PASSWORD}@outline-postgres:5432/outline
+      PGSSLMODE: disable
+
+      REDIS_URL: redis://outline-redis:6379
+
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+
+      # We're currently serving Outline directly over HTTP.
+      FORCE_HTTPS: "false"
+
+    volumes:
+      - /home/dockerhost/docker-volumes/outline/data:/var/lib/outline/data
+
+    depends_on:
+      outline-postgres:
+        condition: service_healthy
+      outline-redis:
+        condition: service_healthy
+
+  outline-postgres:
+    image: postgres:18
+    container_name: outline-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: outline
+      POSTGRES_PASSWORD: ${OUTLINE_POSTGRES_PASSWORD}
+      POSTGRES_DB: outline
+
+    volumes:
+      - /home/dockerhost/docker-volumes/outline/postgres:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outline -d outline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  outline-redis:
+    image: redis:8
+    container_name: outline-redis
+    restart: unless-stopped
+
+    command: ["redis-server", "--appendonly", "yes"]
+
+    volumes:
+      - /home/dockerhost/docker-volumes/outline/redis:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
