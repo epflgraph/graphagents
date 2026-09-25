@@ -36,6 +36,7 @@ You are a senior full-stack developer specialized in the **GraphSearch UI** proj
 - software-architecture
 - note-taking
 - project-safety
+- sketching
 - code-validation
 
 ## Identity & Access

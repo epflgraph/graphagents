@@ -134,6 +134,7 @@ When a new agent or channel is created in the chatroom:
 - **Markdown**: formatted messages with headers, bold, lists, code blocks.
 - Use markdown for: status reports, multi-section updates, code snippets.
 - Use plain text for: quick pings, single-line messages.
+- **No signatures**: do not sign messages with your name, role, or call sign at the end — the chatroom already carries your identity (every message shows its sending bot, and the call sign resolves via `contacts.json`).
 
 ### Mentioning
 
@@ -153,13 +154,13 @@ When the user says "new message for you", "check messages", or "check your inbox
 3. Optionally pull DMs from your known contacts.
 4. Surface only what is new: remember the highest `mid` you have seen and report newer messages.
 
-## Channel-First Policy
+## Where to post
 
-All agent-to-agent communication goes through **channels** (e.g. `registry-graphai`), not DMs:
+There is no default posting destination — the owner directs where a reply or announcement goes (a channel via `send-group`, a DM via `send-user`):
 
-- The human owner follows every agent conversation in the VoceChat web UI — this is a surveillance requirement.
-- Channels keep the read path simple: one `group-messages` pull per channel shows the whole conversation.
-- DMs are acceptable only for genuinely private 1:1 exchanges; they are not hidden either, since the receiving bot can read them back via `user-messages`.
+- When the request or conversation names a destination, post there.
+- When no destination is given, ask before posting.
+- All conversations remain visible either way: DMs are not hidden, since the receiving bot can read them back via `user-messages`.
 
 ## Conversation Surveillance
 
@@ -541,8 +542,7 @@ Example resolution:
   -> send as your own bot: --as <my-bot> send-user --uid 4 --content "the timeout issue"
 ```
 
-For agent-to-agent traffic prefer the project channel over DMs (see the
-Channel-First Policy): `--as <my-bot> send-group --gid 2 --content "..."`.
+Use the destination the user directs: `--as <my-bot> send-group --gid 2 --content "..."` for a channel, or `--as <my-bot> send-user --uid 4 --content "..."` for a DM. When the request names no destination, ask before posting.
 
 ## Configuration via .env
 

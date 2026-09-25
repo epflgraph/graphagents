@@ -1,0 +1,17 @@
+{
+  "$comment": "Sketching style parameters - the single source of truth for the sketching skill. SKILL.md instructs agents to read this file and substitute its values; tuning the style is an edit to this JSON, never to the skill. Approved look: Outline test page 'Mermaid layout test 2 - complex', section G.",
+  "layout": { "mode": "flowchart-elk", "direction": "TD" },
+  "theme": { "name": "dark", "background": "#1E1E1E", "fontSize": "22px" },
+  "boxes": { "fill": "#FFFFFF", "stroke": "#C0C0C0", "text": "#000000" },
+  "arrows": { "color": "#FFFFFF" },
+  "layers": {
+    "entrypoints": "#4E4633",
+    "application": "#4A2535",
+    "domain": "#3E567D",
+    "adapters": "#283628",
+    "others": "#3A3A3A",
+    "stroke": "#FFFFFF",
+    "labelColor": "#FFFFFF"
+  },
+  "structure": { "spineFirst": true, "portArrowsDashed": true }
+}
