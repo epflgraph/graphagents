@@ -170,17 +170,15 @@ GraphRegistry consumes GraphAI through hexagonal gateway adapters located in `gr
 
 - For questions about the GraphAI service contract, endpoints, async behavior, auth, retries, or rate-limiting, consult the `graphai-engineer` agent.
 
-## AI Wiki
+## Knowledge Base (Outline)
 
-- Consult `.opencode/wiki` before broad repository exploration.
-- Use AI Wiki notes as shared project memory.
-- Ask before editing AI Wiki notes.
-- Document reusable architectural findings when useful.
+- Record and consult notes in the Outline **Registry** collection — see the `note-taking` skill and `skills/note-taking/outline_client.py`.
+- Document reusable architectural findings (decisions, ports and adapters, wiring, pitfalls); search the collection before creating a new page.
 
 ## Safety Rules
 
 - Do not edit project source files unless explicitly requested.
-- You may ask before editing AI Wiki notes.
+- Ask before editing knowledge-base pages written by other agents.
 - Do not delete files.
 - Do not inspect `.env`, secrets, credentials, or private config files unless explicitly requested.
 - Do not access databases.

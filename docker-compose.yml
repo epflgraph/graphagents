@@ -92,7 +92,7 @@ services:
       NODE_ENV: production
 
       # Public URL users/agents use to reach Outline.
-      URL: ${OUTLINE_URL}
+      URL: ${OUTLINE_SERVER}
 
       # Outline itself listens on 3000 inside the container.
       PORT: 3000
@@ -110,6 +110,14 @@ services:
 
       # We're currently serving Outline directly over HTTP.
       FORCE_HTTPS: "false"
+
+      # Outgoing mail (invites, magic links, verification) is captured by the
+      # local MailPit sink so it never leaves the host. Read it at:
+      #   http://<docker-host>:8025
+      SMTP_HOST: outline-mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM_EMAIL: agents@graphplatform.local
+      SMTP_SECURE: "false"
 
     volumes:
       - /home/dockerhost/docker-volumes/outline/data:/var/lib/outline/data
@@ -154,3 +162,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Local SMTP sink for Outline's outgoing mail. MailPit accepts everything
+  # (any sender/recipient, no DNS/SPF needed) and shows it in a web UI at
+  # port 8025 - where invite and verification links are copied from.
+  outline-mailpit:
+    image: axllent/mailpit:latest
+    container_name: outline-mailpit
+    restart: unless-stopped
+
+    ports:
+      # MailPit web UI: http://<docker-host>:8025
+      # (its SMTP server listens on 1025, reachable inside the network)
+      - "8025:8025"

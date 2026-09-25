@@ -63,4 +63,4 @@ Agents coordinate in real time through a [VoceChat](https://voce.chat/) channel.
 
 Shared Memory
 -------------
-Notes in `notes/<name>.md` act as shared AI Wiki memory across agents. They record conventions, decisions, pitfalls, and setup instructions so that knowledge persists between sessions.
+Durable agent knowledge (wikis, decisions, conventions, pitfalls) lives in the [Outline](https://www.getoutline.com) knowledge base, one collection per Graph service. The `note-taking` skill bundles `outline_client.py`, a CLI for listing collections and creating, editing, and searching notes. Repo-local `notes/<name>.md` files remain for infrastructure setup instructions.

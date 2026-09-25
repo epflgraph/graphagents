@@ -1,0 +1,40 @@
+{
+  "collections": {
+    "registry": {
+      "id": "2689d56c-fe97-4726-b709-9215d3bb4b2d",
+      "aliases": ["graph registry", "gr"]
+    },
+    "ai": {
+      "id": "c474d0c1-9f56-4dce-8170-26de81cb331f",
+      "aliases": ["graph ai", "graphai"]
+    },
+    "search": {
+      "id": "8eb0e5be-b824-4a64-8d69-b19843479fdd",
+      "aliases": ["graph search", "graphsearch"]
+    },
+    "dashboard": {
+      "id": "ab98d3ed-4882-4dc4-8f27-223ef9acaed1",
+      "aliases": ["graph dashboard", "monitoring", "graphdashboard"]
+    },
+    "ontology": {
+      "id": "924fb41d-3639-411d-9edc-44811f9901e3",
+      "aliases": ["graph ontology"]
+    },
+    "agents": {
+      "id": "9ef87551-0a08-49cc-89ad-60d2b186f0ff",
+      "aliases": ["graph agents", "agent repo", "graphagents"]
+    },
+    "db-client": {
+      "id": "1c7ac720-1665-4714-963c-0abe1256313c",
+      "aliases": ["db client", "mysql client", "mariadb client", "database client"]
+    },
+    "es-client": {
+      "id": "3e930174-9464-4614-a68f-32d24859915d",
+      "aliases": ["es client", "elasticsearch client", "elastic client"]
+    },
+    "sdk": {
+      "id": "3db059b0-47d8-427b-b8ef-46468bcf5d0d",
+      "aliases": ["graph sdk"]
+    }
+  }
+}

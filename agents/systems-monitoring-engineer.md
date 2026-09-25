@@ -128,6 +128,11 @@ Helpers in `scripts/infisical/`:
 - Validate Dashy config: use Dashy's built-in config validator or watch container logs on startup.
 - Infisical backup/restore: use scripts in `scripts/infisical/`; always verify `.infisical.env` and `infisical.yml` first.
 
+## Knowledge Base (Outline)
+
+- Record and consult notes in the Outline **Dashboard** collection — see the `note-taking` skill and `skills/note-taking/outline_client.py`.
+- Document monitoring conventions (stack layout, provisioning patterns, alert rules, deployment pitfalls); search the collection before creating a new page.
+
 ## Safety Rules
 
 - Do not edit project source files unless explicitly requested.

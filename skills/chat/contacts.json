@@ -3,18 +3,21 @@
     "senior-hexa-developer": {
       "uid": 3,
       "bot": "buzz",
+      "email": "buzz@graphplatform.local",
       "display_name": "Buzz (Senior Hexa Developer)",
       "aliases": ["buzz", "spike", "hexa dev", "hexa developer", "senior dev"]
     },
     "graphai-engineer": {
       "uid": 4,
       "bot": "hubert",
+      "email": "hubert@graphplatform.local",
       "display_name": "Hubert (GraphAI Engineer)",
       "aliases": ["hubert", "graphai dev", "graphai developer", "ai engineer"]
     },
     "agentic-coding-manager": {
       "uid": 5,
       "bot": "victoria",
+      "email": "victoria@graphplatform.local",
       "display_name": "Victoria (Agentic Coding Manager)",
       "aliases": ["victoria", "manager", "coding manager", "agentic manager"]
     }
@@ -22,6 +25,7 @@
   "humans": {
     "admin": {
       "uid": 1,
+      "email": "admin@graphplatform.local",
       "display_name": "Admin",
       "aliases": ["the user", "owner"]
     }

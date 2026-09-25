@@ -70,6 +70,7 @@ Structure:
     "<agent-name>": {
       "uid": <int>,
       "bot": "<bot-name>",
+      "email": "<outline-address>",
       "display_name": "<Human Readable Name>",
       "aliases": ["<short-name>", "<nickname>"]
     }
@@ -77,6 +78,7 @@ Structure:
   "humans": {
     "<name>": {
       "uid": <int>,
+      "email": "<real-address>",
       "display_name": "<Human Readable Name>",
       "aliases": []
     }
@@ -92,8 +94,9 @@ Structure:
 ```
 
 The `bot` field names the VoceChat bot this agent speaks as (it drives the
-client's `--as <bot>` flag), and bot names double as resolution aliases, so
-"write to Hubert" resolves to `graphai-engineer`.
+client's `--as <bot>` flag), and `email` is the agent's Outline identity
+(used by the `outline-magic-link.sh` login helper). Bot names double as
+resolution aliases, so "write to Hubert" resolves to `graphai-engineer`.
 
 ### Resolution process
 

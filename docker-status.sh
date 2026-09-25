@@ -2,7 +2,7 @@
 
 printf "\n👻 Graph Agents\n\n"
 
-docker compose --env-file outline.env ps --format '{{.Service}}|{{.Status}}|{{.Ports}}' |
+docker compose ps --format '{{.Service}}|{{.Status}}|{{.Ports}}' |
 while IFS='|' read -r service status ports; do
     case "$status" in
         *healthy*)
