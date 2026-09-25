@@ -6,24 +6,24 @@ for sending messages, querying users/groups, reading recent messages, and
 receiving webhook events.
 
 Usage:
-  python vocechat_client.py --as spike groups
-  python vocechat_client.py --as spike send-user --uid 4 --content "Hello!"
-  python vocechat_client.py --as spike send-group --gid 2 --content "**Status**" --markdown
+  python vocechat_client.py --as buzz groups
+  python vocechat_client.py --as buzz send-user --uid 4 --content "Hello!"
+  python vocechat_client.py --as buzz send-group --gid 2 --content "**Status**" --markdown
   python vocechat_client.py --as hubert group-messages --gid 2 --context 20
   python vocechat_client.py --as hubert user-messages --uid 3
-  python vocechat_client.py --as spike user-info --uid 4
-  python vocechat_client.py --as spike group-info --gid 1
+  python vocechat_client.py --as buzz user-info --uid 4
+  python vocechat_client.py --as buzz group-info --gid 1
   python vocechat_client.py webhook --port 8010
   python vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat.log
 
 Identity:
-  Each agent speaks as its own bot. `--as spike` resolves the API key from
-  VOCECHAT_SPIKE_API_KEY, `--as hubert` from VOCECHAT_HUBERT_API_KEY, etc.
+  Each agent speaks as its own bot. `--as buzz` resolves the API key from
+  VOCECHAT_buzz_API_KEY, `--as hubert` from VOCECHAT_HUBERT_API_KEY, etc.
   Without `--as` the client falls back to VOCECHAT_API_KEY.
 
 Environment variables (or .env file):
   VOCECHAT_SERVER          Base URL of the VoceChat server
-  VOCECHAT_<BOT>_API_KEY   Per-bot API key (e.g. VOCECHAT_SPIKE_API_KEY)
+  VOCECHAT_<BOT>_API_KEY   Per-bot API key (e.g. VOCECHAT_buzz_API_KEY)
   VOCECHAT_API_KEY         Fallback API key when no --as is given
   VOCECHAT_BOT_ID          Bot user ID (optional)
 """
@@ -530,7 +530,7 @@ def load_env_file(env_path: str = ".env") -> None:
 
 # Public Function: Resolve the API key of a bot from per-bot env variables.
 def resolve_bot_credentials(bot: str) -> str:
-    """Return the API key for a bot name such as 'spike' or 'hubert'.
+    """Return the API key for a bot name such as 'buzz' or 'hubert'.
 
     Looks up VOCECHAT_<BOT>_API_KEY (name upper-cased, dashes and spaces
     become underscores). Raises ValueError with an actionable message when
@@ -603,7 +603,7 @@ def main() -> None:
         "--as",
         dest="as_bot",
         default=None,
-        help="Bot identity (e.g. spike, hubert): resolves VOCECHAT_<BOT>_API_KEY",
+        help="Bot identity (e.g. buzz, hubert): resolves VOCECHAT_<BOT>_API_KEY",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -657,7 +657,7 @@ def main() -> None:
         return
 
     # All other commands need a client. Resolve the bot identity first when
-    # one is given (e.g. --as spike -> VOCECHAT_SPIKE_API_KEY).
+    # one is given (e.g. --as buzz -> VOCECHAT_buzz_API_KEY).
     api_key = args.api_key
     if args.as_bot:
         try:

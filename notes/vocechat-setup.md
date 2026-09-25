@@ -42,7 +42,7 @@ Open `http://localhost:3000/` and complete the initial admin setup.
 ## API key generation
 
 1. In the bot settings, click "Create API Key".
-2. Name it (e.g., "spike-key").
+2. Name it (e.g., "buzz-key").
 3. In the creation dialog, use the **"Copy and Close" button** — never select the wrapped text manually (partial selections are the #1 cause of broken keys).
 4. A valid key is a ~168-character hex string. The key list in the web UI masks keys as `abcd ... ... wxyz`; the full value is always available in the DevTools Network response of the `bot-api-key` request.
 5. If lost or exposed, delete the key and create a new one.
@@ -53,7 +53,7 @@ Create or update `.env` in the project root. With multiple bots, store one key p
 
 ```
 VOCECHAT_SERVER=http://graphregistry.<your-domain>:3009
-VOCECHAT_SPIKE_API_KEY=<bot-api-key>
+VOCECHAT_buzz_API_KEY=<bot-api-key>
 VOCECHAT_HUBERT_API_KEY=<bot-api-key>
 VOCECHAT_VICTORIA_API_KEY=<bot-api-key>
 ```
@@ -102,13 +102,13 @@ For encrypted webhook payloads:
 
 ```bash
 # List all channels the bot is in
-python skills/chat/vocechat_client.py --as spike groups
+python skills/chat/vocechat_client.py --as buzz groups
 
 # Send a text message to a user
-python skills/chat/vocechat_client.py --as spike send-user --uid 4 --content "Hello!"
+python skills/chat/vocechat_client.py --as buzz send-user --uid 4 --content "Hello!"
 
 # Send a markdown message to a channel
-python skills/chat/vocechat_client.py --as spike send-group --gid 2 --content "**Status**: all good" --markdown
+python skills/chat/vocechat_client.py --as buzz send-group --gid 2 --content "**Status**: all good" --markdown
 
 # Read recent channel messages ("new message for you")
 python skills/chat/vocechat_client.py --as hubert group-messages --gid 2 --context 20
@@ -117,10 +117,10 @@ python skills/chat/vocechat_client.py --as hubert group-messages --gid 2 --conte
 python skills/chat/vocechat_client.py --as hubert user-messages --uid 3
 
 # Get user info
-python skills/chat/vocechat_client.py --as spike user-info --uid 4
+python skills/chat/vocechat_client.py --as buzz user-info --uid 4
 
 # Get group info
-python skills/chat/vocechat_client.py --as spike group-info --gid 1
+python skills/chat/vocechat_client.py --as buzz group-info --gid 1
 
 # Start webhook receiver
 python skills/chat/vocechat_client.py webhook --port 8010

@@ -2,9 +2,9 @@
   "agents": {
     "senior-hexa-developer": {
       "uid": 3,
-      "bot": "spike",
-      "display_name": "Spike (Senior Hexa Developer)",
-      "aliases": ["spike", "hexa dev", "hexa developer", "senior dev"]
+      "bot": "buzz",
+      "display_name": "Buzz (Senior Hexa Developer)",
+      "aliases": ["buzz", "spike", "hexa dev", "hexa developer", "senior dev"]
     },
     "graphai-engineer": {
       "uid": 4,
@@ -34,8 +34,8 @@
     },
     "registry-graphai": {
       "gid": 2,
-      "display_name": "Registry-GraphAI",
-      "aliases": ["registry graphai", "reg-graphai", "registry-graphai channel"]
+      "display_name": "Platform",
+      "aliases": ["platform channel", "registry-graphai channel", "graph platform"]
     }
   }
 }

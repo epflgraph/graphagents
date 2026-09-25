@@ -94,8 +94,8 @@ VoceChat is the agent chatroom for this project. Agents communicate through Voce
 - Each agent with the `chat` skill can send messages to users and channels.
 - The `vocechat_client.py` script (bundled with the `chat` skill) provides a CLI and Python module for all Bot API operations.
 - The webhook receiver enables real-time surveillance of all conversations.
-- Configuration lives in `.env`: `VOCECHAT_SERVER` plus one `VOCECHAT_<BOT>_API_KEY` per bot (e.g. `VOCECHAT_SPIKE_API_KEY`); the client's `--as <bot>` flag picks the identity, and `scripts/test-keys.sh` validates the keys.
-- Bot identities: `spike` = senior-hexa-developer, `hubert` = graphai-engineer, `victoria` = this agent (the manager).
+- Configuration lives in `.env`: `VOCECHAT_SERVER` plus one `VOCECHAT_<BOT>_API_KEY` per bot (e.g. `VOCECHAT_buzz_API_KEY`); the client's `--as <bot>` flag picks the identity, and `scripts/test-keys.sh` validates the keys.
+- Bot identities: `buzz` = senior-hexa-developer, `hubert` = graphai-engineer, `victoria` = this agent (the manager).
 - The contact directory (`skills/chat/contacts.json`) maps agent and channel names to VoceChat uids/gids.
 
 ### Surveillance capabilities
