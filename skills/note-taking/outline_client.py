@@ -6,16 +6,18 @@ instance (https://www.getoutline.com) where agents take notes and build
 wikis per Graph service collection. Uses only the standard library.
 
 Usage:
-  python outline_client.py --as buzz collection-docs --collection agents
-  python outline_client.py --as buzz create --collection agents --title "Wiki start" --file page.md
-  python outline_client.py --as hubert search --query "graphai endpoints" --collection ai
-  python outline_client.py --as hubert edit --id <document-id> --file updated.md
-  python outline_client.py --as victoria read --id <document-id>
-  python outline_client.py --as victoria collections
+  python outline_client.py --as senior-hexa-developer collection-docs --collection agents
+  python outline_client.py --as senior-hexa-developer create --collection agents --title "Wiki start" --file page.md
+  python outline_client.py --as graphai-engineer search --query "graphai endpoints" --collection ai
+  python outline_client.py --as graphai-engineer edit --id <document-id> --file updated.md
+  python outline_client.py --as agentic-coding-manager read --id <document-id>
+  python outline_client.py --as agentic-coding-manager collections
 
-Identity (--as <agent>):
-  Agents speak as their own Outline user. `--as buzz` resolves
-  OUTLINE_BUZZ_API_KEY, `--as hubert` resolves OUTLINE_HUBERT_API_KEY, etc.
+Identity (--as <agent or call sign>):
+  Agents are identity-agnostic: pass your own agent name
+  (--as senior-hexa-developer) or your call sign (whatever it currently
+  is — see agents/identities.json). Both resolve through the central
+  registry, which maps each agent to the exact OUTLINE_ key variable.
   Without --as the client falls back to OUTLINE_API_KEY.
 
 Collections can be named by friendly name (see collections.json), by
@@ -24,7 +26,7 @@ collections.list).
 
 Environment variables (or .env file):
   OUTLINE_SERVER              Base URL of the Outline server (no trailing /)
-  OUTLINE_<AGENT>_API_KEY     Per-agent API key (e.g. OUTLINE_BUZZ_API_KEY)
+  OUTLINE_<AGENT>_API_KEY     Per-agent API key as named in agents/identities.json
   OUTLINE_API_KEY             Fallback API key when no --as is given
 """
 
@@ -43,6 +45,10 @@ from urllib.request import Request, urlopen
 
 class OutlineError(RuntimeError):
     """Raised for any Outline API error with a human-readable message."""
+
+
+# Module-level: .env files merged into os.environ during this run.
+_LOADED_ENV_FILES: list[Path] = []
 
 
 #==================#
@@ -107,8 +113,9 @@ class OutlineClient:
             )
         if not self.api_key:
             raise OutlineError(
-                "No API key: pass --as <agent> (resolves OUTLINE_<AGENT>_API_KEY), "
-                "set OUTLINE_API_KEY in .env, or pass --api-key."
+                "No API key. This project uses per-agent keys: rerun with "
+                "--as <agent> so OUTLINE_<AGENT>_API_KEY is resolved"
+                f".{_identities_hint()} Alternatively pass --api-key directly."
             )
 
     # Public Method: Verify the key and return current user/team info.
@@ -305,23 +312,98 @@ def print_tree(nodes: list[dict[str, Any]], indent: int = 0) -> None:
 #===========================================#
 
 
-# Public Function: Resolve the API key of an agent from per-agent env variables.
-def resolve_agent_credentials(agent: str) -> str:
-    """Return the API key for an agent such as 'buzz' or 'hubert'.
+# Internal Function: Load the central identity registry (agents/identities.json).
+def load_identity_registry() -> dict[str, Any]:
+    """Return the central identity registry, or {} when unreadable.
 
-    Looks up OUTLINE_<AGENT>_API_KEY (upper-cased, dashes and spaces become
-    underscores). Raises OutlineError with an actionable message when the
-    variable is missing.
+    The registry is the single source of truth for agent call signs and the
+    exact, per-service key variable names. Agents stay identity-agnostic:
+    --as accepts an agent name or a call sign and this registry resolves it.
     """
+    path = Path(__file__).resolve().parents[2] / "agents" / "identities.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+# Internal Function: Find an agent entry by agent name or call sign.
+def lookup_identity(name: str) -> dict[str, Any] | None:
+    """Return {'agent': ..., **entry} for an agent name or call sign, else None."""
+    agents = load_identity_registry().get("agents", {})
+    lowered = name.strip().lower()
+    entry = agents.get(lowered)
+    if isinstance(entry, dict):
+        return {"agent": lowered, **entry}
+    for agent, candidate in agents.items():
+        if str(candidate.get("call_sign", "")).lower() == lowered:
+            return {"agent": agent, **candidate}
+    return None
+
+
+# Internal Function: Describe available identities for error messages.
+def _identities_hint() -> str:
+    """Return the error suffix listing available identities, or '' when none exist."""
+    identities = [
+        f"{agent} ({entry.get('call_sign', '?')})"
+        for agent, entry in load_identity_registry().get("agents", {}).items()
+        if isinstance(entry, dict)
+    ]
+    if not identities:
+        # Fall back to variable names when the registry cannot be read.
+        for var in os.environ:
+            if var.startswith("OUTLINE_") and var.endswith("_API_KEY"):
+                middle = var[len("OUTLINE_") : -len("_API_KEY")]
+                if middle:
+                    identities.append(middle.replace("_", "-").lower())
+    if not identities:
+        return ""
+    return (
+        f" Available identities: {', '.join(identities)} — pass --as <agent name"
+        f" or call sign> (e.g. --as {identities[0].split(' ')[0]})."
+    )
+
+
+# Public Function: Resolve the Outline API key for an agent name or call sign.
+def resolve_agent_credentials(agent: str) -> str:
+    """Return the Outline API key for an agent or call sign.
+
+    Resolution order:
+      1. The exact key variable named in agents/identities.json for the
+         identity (resolved by agent name or call sign).
+      2. The OUTLINE_<CALLSIGN>_API_KEY convention variable (back-compat).
+      3. The OUTLINE_<GIVEN-NAME>_API_KEY convention variable (back-compat
+         for identities missing from the registry).
+    Raises OutlineError when nothing resolves; only variable names appear
+    in errors, never values.
+    """
+    candidates: list[str] = []
+    identity = lookup_identity(agent)
+    if identity:
+        explicit_var = (identity.get("keys") or {}).get("outline")
+        if explicit_var:
+            candidates.append(explicit_var)
+        call_sign = str(identity.get("call_sign", "")).upper().replace(" ", "_")
+        if call_sign:
+            candidates.append(f"OUTLINE_{call_sign}_API_KEY")
     suffix = agent.strip().upper().replace("-", "_").replace(" ", "_")
-    key = os.environ.get(f"OUTLINE_{suffix}_API_KEY", "")
-    if not key:
-        raise OutlineError(
-            f"OUTLINE_{suffix}_API_KEY is not set. Create the key in Outline "
-            "(Settings -> API & Apps) while logged in as that agent's user, "
-            "then add it to .env."
-        )
-    return key
+    convention_var = f"OUTLINE_{suffix}_API_KEY"
+    if convention_var not in candidates:
+        candidates.append(convention_var)
+
+    for var in candidates:
+        key = os.environ.get(var, "")
+        if key:
+            return key
+    raise OutlineError(
+        f"No Outline key resolved for '{agent}' (tried: {', '.join(candidates)})."
+        f"{_identities_hint()} Keys load automatically from a .env (first one"
+        " found walking up from the current directory, then the agents repo"
+        " root). To add a key, create it in Outline (Settings -> API & Apps)"
+        " while logged in as that agent's user, then add the named variable"
+        " to .env."
+    )
 
 
 #====================================#
@@ -331,9 +413,15 @@ def resolve_agent_credentials(agent: str) -> str:
 
 # Public Function: Parse CLI arguments and dispatch to the appropriate command.
 def main() -> None:
-    # Load .env from the working directory, then from the repo root so the
-    # client also works when invoked from outside the project.
-    _load_env_file(".env")
+    # Load .env files without any manual sourcing: the first .env found walking
+    # up from the current directory, then the agents repo root as fallback so
+    # the client also works when invoked from outside any configured project.
+    cwd = Path.cwd().resolve()
+    for candidate in [cwd, *cwd.parents]:
+        env_path = candidate / ".env"
+        if env_path.is_file():
+            _load_env_file(str(env_path))
+            break
     _load_env_file(str(Path(__file__).resolve().parents[2] / ".env"))
 
     parser = argparse.ArgumentParser(description="Outline API client")
@@ -343,7 +431,8 @@ def main() -> None:
         "--as",
         dest="as_agent",
         default=None,
-        help="Agent identity (e.g. buzz, hubert): resolves OUTLINE_<AGENT>_API_KEY",
+        help="Agent name or call sign (e.g. senior-hexa-developer): "
+        "resolved via agents/identities.json",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -389,8 +478,8 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Resolve the agent identity first when one is given (e.g. --as buzz ->
-    # OUTLINE_BUZZ_API_KEY), falling back to OUTLINE_API_KEY otherwise.
+    # Resolve the agent identity first when one is given (agent name or call
+    # sign, via agents/identities.json), falling back to OUTLINE_API_KEY otherwise.
     api_key = args.api_key
     if args.as_agent:
         try:
@@ -504,8 +593,9 @@ def _read_text(text: str | None, file: str | None) -> str | None:
 def _load_env_file(env_path: str) -> None:
     """Load assignments from a .env file without overriding existing values."""
     path = Path(env_path)
-    if not path.exists():
+    if not path.exists() or path in _LOADED_ENV_FILES:
         return
+    _LOADED_ENV_FILES.append(path)
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):

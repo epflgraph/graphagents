@@ -6,24 +6,26 @@ for sending messages, querying users/groups, reading recent messages, and
 receiving webhook events.
 
 Usage:
-  python vocechat_client.py --as buzz groups
-  python vocechat_client.py --as buzz send-user --uid 4 --content "Hello!"
-  python vocechat_client.py --as buzz send-group --gid 2 --content "**Status**" --markdown
-  python vocechat_client.py --as hubert group-messages --gid 2 --context 20
-  python vocechat_client.py --as hubert user-messages --uid 3
-  python vocechat_client.py --as buzz user-info --uid 4
-  python vocechat_client.py --as buzz group-info --gid 1
+  python vocechat_client.py --as senior-hexa-developer groups
+  python vocechat_client.py --as senior-hexa-developer send-user --uid 4 --content "Hello!"
+  python vocechat_client.py --as senior-hexa-developer send-group --gid 2 --content "**Status**" --markdown
+  python vocechat_client.py --as graphai-engineer group-messages --gid 2 --context 20
+  python vocechat_client.py --as graphai-engineer user-messages --uid 3
+  python vocechat_client.py --as senior-hexa-developer user-info --uid 4
+  python vocechat_client.py --as senior-hexa-developer group-info --gid 1
   python vocechat_client.py webhook --port 8010
   python vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat.log
 
 Identity:
-  Each agent speaks as its own bot. `--as buzz` resolves the API key from
-  VOCECHAT_buzz_API_KEY, `--as hubert` from VOCECHAT_HUBERT_API_KEY, etc.
+  Agents are identity-agnostic: `--as` accepts your own agent name
+  (e.g. --as senior-hexa-developer) or your call sign (whatever it currently
+  is — see agents/identities.json). Both resolve through the central
+  registry, which maps each agent to the exact VOCECHAT_ key variable.
   Without `--as` the client falls back to VOCECHAT_API_KEY.
 
 Environment variables (or .env file):
   VOCECHAT_SERVER          Base URL of the VoceChat server
-  VOCECHAT_<BOT>_API_KEY   Per-bot API key (e.g. VOCECHAT_buzz_API_KEY)
+  VOCECHAT_<BOT>_API_KEY   Per-bot API key as named in agents/identities.json
   VOCECHAT_API_KEY         Fallback API key when no --as is given
   VOCECHAT_BOT_ID          Bot user ID (optional)
 """
@@ -528,22 +530,96 @@ def load_env_file(env_path: str = ".env") -> None:
             os.environ[key] = value
 
 
-# Public Function: Resolve the API key of a bot from per-bot env variables.
-def resolve_bot_credentials(bot: str) -> str:
-    """Return the API key for a bot name such as 'buzz' or 'hubert'.
+# Internal Function: Load the central identity registry (agents/identities.json).
+def load_identity_registry() -> dict[str, Any]:
+    """Return the central identity registry, or {} when unreadable.
 
-    Looks up VOCECHAT_<BOT>_API_KEY (name upper-cased, dashes and spaces
-    become underscores). Raises ValueError with an actionable message when
-    the variable is missing.
+    The registry is the single source of truth for agent call signs and the
+    exact, per-service key variable names. Agents stay identity-agnostic:
+    --as accepts an agent name or a call sign and this registry resolves it.
     """
+    path = Path(__file__).resolve().parents[2] / "agents" / "identities.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+# Internal Function: Find an agent entry by agent name or call sign.
+def lookup_identity(name: str) -> dict[str, Any] | None:
+    """Return {'agent': ..., **entry} for an agent name or call sign, else None."""
+    agents = load_identity_registry().get("agents", {})
+    lowered = name.strip().lower()
+    entry = agents.get(lowered)
+    if isinstance(entry, dict):
+        return {"agent": lowered, **entry}
+    for agent, candidate in agents.items():
+        if str(candidate.get("call_sign", "")).lower() == lowered:
+            return {"agent": agent, **candidate}
+    return None
+
+
+# Internal Function: Describe available identities for error messages.
+def _identities_hint() -> str:
+    """Return the error suffix listing available identities, or '' when none exist."""
+    identities = [
+        f"{agent} ({entry.get('call_sign', '?')})"
+        for agent, entry in load_identity_registry().get("agents", {}).items()
+        if isinstance(entry, dict)
+    ]
+    if not identities:
+        # Fall back to variable names when the registry cannot be read.
+        for var in os.environ:
+            if var.startswith("VOCECHAT_") and var.endswith("_API_KEY"):
+                middle = var[len("VOCECHAT_") : -len("_API_KEY")]
+                if middle:
+                    identities.append(middle.replace("_", "-").lower())
+    if not identities:
+        return ""
+    return (
+        f" Available identities: {', '.join(identities)} — pass --as <agent name"
+        f" or call sign> (e.g. --as {identities[0].split(' ')[0]})."
+    )
+
+
+# Public Function: Resolve the VoceChat bot API key for an agent name or call sign.
+def resolve_bot_credentials(bot: str) -> str:
+    """Return the VoceChat API key for an agent or call sign.
+
+    Resolution order:
+      1. The exact key variable named in agents/identities.json for the
+         identity (resolved by agent name or call sign).
+      2. The VOCECHAT_<CALLSIGN>_API_KEY convention variable (back-compat).
+      3. The VOCECHAT_<GIVEN-NAME>_API_KEY convention variable (back-compat
+         for identities missing from the registry).
+    Raises ValueError when nothing resolves; only variable names appear in
+    the error, never values.
+    """
+    candidates: list[str] = []
+    identity = lookup_identity(bot)
+    if identity:
+        explicit_var = (identity.get("keys") or {}).get("vocechat")
+        if explicit_var:
+            candidates.append(explicit_var)
+        call_sign = str(identity.get("call_sign", "")).upper().replace(" ", "_")
+        if call_sign:
+            candidates.append(f"VOCECHAT_{call_sign}_API_KEY")
     suffix = bot.strip().upper().replace("-", "_").replace(" ", "_")
-    key = os.environ.get(f"VOCECHAT_{suffix}_API_KEY", "")
-    if not key:
-        raise ValueError(
-            f"VOCECHAT_{suffix}_API_KEY is not set. Add it to .env or pass "
-            "--api-key explicitly."
-        )
-    return key
+    convention_var = f"VOCECHAT_{suffix}_API_KEY"
+    if convention_var not in candidates:
+        candidates.append(convention_var)
+
+    for var in candidates:
+        key = os.environ.get(var, "")
+        if key:
+            return key
+    raise ValueError(
+        f"No VoceChat key resolved for '{bot}' (tried: {', '.join(candidates)})."
+        f"{_identities_hint()} Keys load automatically from a .env; to add one,"
+        " create it in VoceChat (Settings -> Bot & Webhook) and add the named"
+        " variable to .env."
+    )
 
 
 #=========================================================================#
@@ -603,7 +679,8 @@ def main() -> None:
         "--as",
         dest="as_bot",
         default=None,
-        help="Bot identity (e.g. buzz, hubert): resolves VOCECHAT_<BOT>_API_KEY",
+        help="Agent name or call sign (e.g. senior-hexa-developer): "
+        "resolved via agents/identities.json",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -657,7 +734,7 @@ def main() -> None:
         return
 
     # All other commands need a client. Resolve the bot identity first when
-    # one is given (e.g. --as buzz -> VOCECHAT_buzz_API_KEY).
+    # one is given (agent name or call sign, via agents/identities.json).
     api_key = args.api_key
     if args.as_bot:
         try:

@@ -94,16 +94,16 @@ VoceChat is the agent chatroom for this project. Agents communicate through Voce
 - Each agent with the `chat` skill can send messages to users and channels.
 - The `vocechat_client.py` script (bundled with the `chat` skill) provides a CLI and Python module for all Bot API operations.
 - The webhook receiver enables real-time surveillance of all conversations.
-- Configuration lives in `.env`: `VOCECHAT_SERVER` plus one `VOCECHAT_<BOT>_API_KEY` per bot (e.g. `VOCECHAT_buzz_API_KEY`); the client's `--as <bot>` flag picks the identity, and `scripts/test-keys.sh` validates the keys.
-- Bot identities: `buzz` = senior-hexa-developer, `hubert` = graphai-engineer, `victoria` = this agent (the manager).
+- Configuration lives in `.env`: `VOCECHAT_SERVER` plus one key per bot, each named exactly as that bot's entry in `agents/identities.json` — the registry holds the variable names, never the values. The clients load `.env` automatically, and `scripts/test-keys.sh` validates the keys.
+- Identity centralization: `agents/identities.json` is the single source of truth for call signs and per-service key variable names. Clients (`vocechat_client.py`, `outline_client.py`) resolve identities from it — agent definitions are call-sign agnostic: they carry no call sign and no key name, and all examples pass `--as <your own agent name>`, which the registry maps to the current call sign.
 - The contact directory (`skills/chat/contacts.json`) maps agent and channel names to VoceChat uids/gids.
 
 ### Surveillance capabilities
 
 As the agentic coding manager, you can:
 
-1. **List all channels** a bot is in: `python skills/chat/vocechat_client.py --as victoria groups`
-2. **Read channel history** on demand: `python skills/chat/vocechat_client.py --as victoria group-messages --gid 2` (pull-based, no webhook needed)
+1. **List all channels** a bot is in: `python skills/chat/vocechat_client.py --as agentic-coding-manager groups`
+2. **Read channel history** on demand: `python skills/chat/vocechat_client.py --as agentic-coding-manager group-messages --gid 2` (pull-based, no webhook needed)
 3. **Monitor conversations** in real time by running the webhook receiver: `python skills/chat/vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat_surveillance.log`
 4. **Post guidance** to channels when agents need course correction.
 5. **Get user and group info** to understand who is talking and where.

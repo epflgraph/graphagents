@@ -1,0 +1,29 @@
+{
+  "$comment": "Central agent identity registry — the single source of truth for agent call signs and per-service key variable names. Skills' clients (chat, note-taking) resolve identities from here: --as accepts an agent name or a call sign. Key variable names are explicit and case-exact so clients never derive naming conventions. The referenced variables live in a project .env; values are secrets and are never stored in this file.",
+  "agents": {
+    "senior-hexa-developer": {
+      "call_sign": "buzz",
+      "display_name": "Buzz",
+      "keys": {
+        "outline": "OUTLINE_BUZZ_API_KEY",
+        "vocechat": "VOCECHAT_BUZZ_API_KEY"
+      }
+    },
+    "graphai-engineer": {
+      "call_sign": "hubert",
+      "display_name": "Hubert",
+      "keys": {
+        "outline": "OUTLINE_HUBERT_API_KEY",
+        "vocechat": "VOCECHAT_HUBERT_API_KEY"
+      }
+    },
+    "agentic-coding-manager": {
+      "call_sign": "victoria",
+      "display_name": "Victoria",
+      "keys": {
+        "outline": "OUTLINE_VICTORIA_API_KEY",
+        "vocechat": "VOCECHAT_VICTORIA_API_KEY"
+      }
+    }
+  }
+}

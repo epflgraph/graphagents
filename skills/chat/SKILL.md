@@ -93,10 +93,12 @@ Structure:
 }
 ```
 
-The `bot` field names the VoceChat bot this agent speaks as (it drives the
-client's `--as <bot>` flag), and `email` is the agent's Outline identity
-(used by the `outline-magic-link.sh` login helper). Bot names double as
-resolution aliases, so "write to Hubert" resolves to `graphai-engineer`.
+The `bot` field mirrors that agent's `call_sign` in `agents/identities.json`
+(the single source of truth for identity; the field is retained here for
+contact display and aliasing), and `email` is the agent's Outline identity
+(used by the `outline-magic-link.sh` login helper). Bot names and display
+names double as resolution aliases, so a message addressed by call sign or
+display name resolves to that agent.
 
 ### Resolution process
 
@@ -146,7 +148,7 @@ The Bot API is not send-only: a bot can pull the messages it is allowed to see.
 
 When the user says "new message for you", "check messages", or "check your inbox":
 
-1. Identify your own bot via the agent-to-bot mapping in `contacts.json` (e.g. `senior-hexa-developer` -> `buzz`).
+1. Agents are identity-agnostic: pass `--as <your own agent name>` — the central registry `agents/identities.json` maps it to your call sign and key (e.g. `--as senior-hexa-developer`).
 2. Pull recent messages from the channels relevant to you (default: the project channel `registry-graphai` and `general`).
 3. Optionally pull DMs from your known contacts.
 4. Surface only what is new: remember the highest `mid` you have seen and report newer messages.
@@ -196,15 +198,13 @@ VoceChat is a superlight (20 MB), open-source, self-hosted chat server written i
 | Variable                 | Description                                        |
 | ------------------------ | -------------------------------------------------- |
 | `VOCECHAT_SERVER`        | Base URL of the VoceChat server (no trailing `/`) |
-| `VOCECHAT_<BOT>_API_KEY` | Per-bot API key, e.g. `VOCECHAT_buzz_API_KEY`    |
+| `VOCECHAT_<BOT>_API_KEY` | Per-bot API key, as named per bot in `agents/identities.json` |
 | `VOCECHAT_API_KEY`       | Fallback API key when no bot identity is given    |
 | `VOCECHAT_BOT_ID`        | Numeric bot user ID (optional)                    |
 
-Store these in `.env` or export them before running scripts. Never commit API keys.
+The client loads these from a `.env` automatically (first `.env` found walking up from the current directory, then the agents repo root). Never commit API keys.
 
-Each agent speaks as its own bot: the client's `--as <bot>` flag resolves
-`VOCECHAT_<BOT>_API_KEY` (e.g. `--as buzz`, `--as hubert`). The agent-to-bot
-mapping lives in `contacts.json` (the `bot` field of each agent entry).
+Agents are identity-agnostic: `--as` accepts an agent name or a call sign (e.g. `--as senior-hexa-developer`), resolved through the central registry `agents/identities.json` — the single source of truth for the current call signs and per-bot key variable names.
 
 ### Authentication
 
@@ -486,25 +486,25 @@ A bundled Python client (`vocechat_client.py`) provides all Bot API operations a
 
 ```bash
 # List all groups the bot is in
-python skills/chat/vocechat_client.py --as buzz groups
+python skills/chat/vocechat_client.py --as senior-hexa-developer groups
 
 # Send a text message to a user (DM)
-python skills/chat/vocechat_client.py --as buzz send-user --uid 4 --content "Hello!"
+python skills/chat/vocechat_client.py --as senior-hexa-developer send-user --uid 4 --content "Hello!"
 
 # Send a markdown message to a group (channel)
-python skills/chat/vocechat_client.py --as buzz send-group --gid 2 --content "**Status**: all good" --markdown
+python skills/chat/vocechat_client.py --as senior-hexa-developer send-group --gid 2 --content "**Status**: all good" --markdown
 
 # Read recent channel messages ("new message for you")
-python skills/chat/vocechat_client.py --as hubert group-messages --gid 2 --context 20
+python skills/chat/vocechat_client.py --as graphai-engineer group-messages --gid 2 --context 20
 
 # Read recent DMs with a user
-python skills/chat/vocechat_client.py --as hubert user-messages --uid 3
+python skills/chat/vocechat_client.py --as graphai-engineer user-messages --uid 3
 
 # Get user info
-python skills/chat/vocechat_client.py --as buzz user-info --uid 4
+python skills/chat/vocechat_client.py --as senior-hexa-developer user-info --uid 4
 
 # Get group info
-python skills/chat/vocechat_client.py --as buzz group-info --gid 1
+python skills/chat/vocechat_client.py --as senior-hexa-developer group-info --gid 1
 
 # Start webhook receiver for surveillance (optional)
 python skills/chat/vocechat_client.py webhook --port 8010
@@ -537,7 +537,7 @@ Example resolution:
 ```
 "tell the graphai dev about the timeout issue"
   -> target: "graphai dev"
-  -> contacts.json: agents -> "graphai-engineer" -> uid: 4, bot: hubert
+  -> contacts.json: agents -> "graphai-engineer" -> uid: 4, bot: <their call sign>
   -> send as your own bot: --as <my-bot> send-user --uid 4 --content "the timeout issue"
 ```
 
@@ -546,14 +546,15 @@ Channel-First Policy): `--as <my-bot> send-group --gid 2 --content "..."`.
 
 ## Configuration via .env
 
-The client reads from environment variables or `.env`. With multiple bots,
-store one key per bot; the client's `--as <bot>` flag picks the identity:
+The client reads from environment variables or `.env` (loaded automatically:
+first `.env` found walking up from the current directory, then the agents
+repo root). With multiple bots, one key per bot; `--as` picks the identity.
+Name each variable exactly as that bot's entry in `agents/identities.json`
+(the registry holds the variable names, never the values):
 
 ```
 VOCECHAT_SERVER=http://graphregistry.<your-domain>:3009
-VOCECHAT_buzz_API_KEY=<168-hex-char-key>
-VOCECHAT_HUBERT_API_KEY=<168-hex-char-key>
-VOCECHAT_VICTORIA_API_KEY=<168-hex-char-key>
+VOCECHAT_<CALL_SIGN>_API_KEY=<key>   # one per bot, named exactly as in agents/identities.json
 ```
 
 Validate the keys at any time with `scripts/test-keys.sh` — it checks the

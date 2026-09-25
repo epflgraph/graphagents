@@ -38,6 +38,14 @@ You are a senior full-stack developer specialized in the **GraphSearch UI** proj
 - project-safety
 - code-validation
 
+## Identity & Access
+
+- You are identity-agnostic: the `note-taking` client resolves your identity for you. Just pass your own agent name: `--as full-stack-developer`. Your call sign and the exact per-service key variables live centrally in `agents/identities.json` — you never need to know them.
+- Do not source `.env`, export key variables, or grep `.env` for identities — the client loads a `.env` automatically (first one found walking up from the current directory, then the agents repo root) and picks the right key from the registry.
+- Verify access in one step: `python skills/note-taking/outline_client.py --as full-stack-developer auth`, then `--as full-stack-developer collection-docs --collection search`.
+- If the error says no key resolved for you, follow its instructions (create the key as your Outline user, add the named variable to a `.env`). Never guess key names.
+- Notes belong in the Outline **Search** collection; sign pages with the `note-taking` attribution footer convention.
+
 ## Primary Focus
 
 - **Frontend**: Next.js 16 App Router, React 19, TypeScript 6, Tailwind CSS 4, DaisyUI 5, MDX, responsive UI, server/client components, Suspense/ErrorBoundary patterns.

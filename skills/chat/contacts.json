@@ -1,4 +1,5 @@
 {
+  "$comment": "Chat contact directory (uids/gids/aliases). Call signs and per-service key variables are NOT maintained here — agents/identities.json is the single source of truth for identity.",
   "agents": {
     "senior-hexa-developer": {
       "uid": 3,

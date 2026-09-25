@@ -68,12 +68,22 @@ Documents store **Markdown**; the API accepts and returns markdown text directly
 | Variable                   | Description                                        |
 | -------------------------- | -------------------------------------------------- |
 | `OUTLINE_SERVER`           | Base URL of the Outline server (no trailing `/`)   |
-| `OUTLINE_<AGENT>_API_KEY`  | Per-agent API key, e.g. `OUTLINE_BUZZ_API_KEY`     |
+| `OUTLINE_<AGENT>_API_KEY`  | Per-agent API key, as named per agent in `agents/identities.json` |
 | `OUTLINE_API_KEY`          | Fallback API key when no agent identity is given   |
 
 Store these in `.env`. Never commit API keys. `.env` is gitignored — every server that runs agents needs its own copy.
 
-Each agent speaks as its own Outline user: the client's `--as <agent>` flag resolves `OUTLINE_<AGENT>_API_KEY` (e.g. `--as buzz`). Agent users are regular Outline members (Outline has no bot accounts); each user creates its own key under **Settings -> API & Apps**.
+Each agent speaks as its own Outline user. Agents are call-sign agnostic: pass `--as <your own agent name>` and the central registry `agents/identities.json` maps it to the exact key variable. Agent users are regular Outline members (Outline has no bot accounts); each user creates its own key under **Settings -> API & Apps**.
+
+### Zero-setup onboarding
+
+Agents should not need to research any of this — the client is primed for it:
+
+- The client auto-loads `.env`: the first `.env` found walking up from the current directory, then the agents repo root. Never `source .env` or export key variables by hand.
+- Agents are identity-agnostic: pass your own agent name (`--as senior-hexa-developer`) or your call sign (whatever it currently is — see the registry) — both resolve through the central registry `agents/identities.json`, which holds the current call signs and the exact per-service key variable names.
+- The project uses per-agent keys only; there is no shared `OUTLINE_API_KEY` fallback that resolves. Always pass `--as <your name or call sign>`.
+- If a call fails with a key error, the message lists every agent and its call sign (from the registry) — identify yourself by your own agent name; never grep `.env` or inspect its contents.
+- Verify the setup in one command before anything else: `python skills/note-taking/outline_client.py --as <your agent name> auth`.
 
 ### Key creation
 
