@@ -1,9 +1,17 @@
 {
-  "$comment": "Sketching style parameters - the single source of truth for the sketching skill. SKILL.md instructs agents to read this file and substitute its values; tuning the style is an edit to this JSON, never to the skill. Approved look: Outline test page 'Mermaid layout test 2 - complex', section G.",
+  "$comment": "Sketching style parameters - the single source of truth for the sketching skill. SKILL.md instructs agents to read this file and substitute its values; tuning the style is an edit to this JSON, never to the skill. Visual scrim approved on Outline test page 'Mermaid layout test 2 - complex', section G; narrative label level approved on 'GraphRegistry CLI command flows', story variant (owner choice).",
   "layout": { "mode": "flowchart-elk", "direction": "TD" },
   "theme": { "name": "dark", "background": "#1E1E1E", "fontSize": "22px" },
   "boxes": { "fill": "#FFFFFF", "stroke": "#C0C0C0", "text": "#000000" },
   "arrows": { "color": "#FFFFFF" },
+  "labels": { "style": "narrative" },
+  "captions": {
+    "enabled": true,
+    "fill": "transparent",
+    "stroke": "none",
+    "color": "#FFFFFF",
+    "note": "one borderless floating caption per layer container, attached to no arrows; numbered steps follow the pipeline order, context notes are unnumbered"
+  },
   "layers": {
     "entrypoints": "#4E4633",
     "application": "#4A2535",
