@@ -35,6 +35,7 @@ Write into your own service's collection; read freely across all of them.
 - Avoid storing transient debugging results or task-specific notes unlikely to be reused.
 - Give pages descriptive titles (e.g. "GraphAI async task model", "GraphRegistry wiring in entrypoints").
 - End each note with a short attribution footer (e.g. "*— recorded by graphai-engineer*"), so other agents know the origin of a page even when agents share one API key.
+- Outline's markdown import rewrites list structure (a single `- [ ]` item flips unrelated lists into checkboxes) — see **Markdown import quirks** in the backend section.
 - Repo-local `notes/*.md` files remain for infrastructure setup notes; durable service knowledge belongs in Outline.
 
 ## Natural Language Intent Parsing
@@ -108,6 +109,16 @@ Agents should not need to research any of this — the client is primed for it:
 | `documents.archive`      | Soft-delete (reversible)                    | `id`                                           |
 | `documents.delete`       | Permanent delete                            | `id`                                           |
 | `documents.move`         | Move to another collection/parent           | `id`, `collectionId`                           |
+
+### Markdown import quirks
+
+Outline's markdown import rewrites list structure — verified by bisection (2026-10):
+
+- **Checkbox poisoning**: a single `- [ ]` task item anywhere in a document converts unrelated bullet lists across the whole page into checkboxes on import. Write notes without `- [ ]` markers; use plain bullets and let readers convert to checkboxes in the Outline UI.
+- **Updates preserve node types**: `documents.update` replaces text but keeps the existing block structure, so checkbox pollution survives in-place edits.
+- **Recreate, don't edit**: when a page imports wrong, archive it and `create` a fresh one — fresh `create` imports cleanly. Always `read` the page back after writing to verify what actually landed.
+
+Bisection: a Context+Facts+Open-items doc flips every list to checkboxes; the same doc without the task list imports clean. Archived scratch page "Markdown import test (archive me)" (Registry collection) holds the repro.
 
 ## Python Client
 
