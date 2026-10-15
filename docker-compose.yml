@@ -22,7 +22,7 @@ services:
       #
       # Map host port 3009 -> container port 3000.
       # VoceChat will therefore be reachable on:
-      #   http://<docker-host>:3009
+      #   Public entry: https://<your-vocechat-host> (direct: http://<docker-host>:3009)
       - "3009:3000"
 
     environment:
@@ -84,8 +84,8 @@ services:
     restart: unless-stopped
 
     ports:
-      # VoceChat: http://host:3009
-      # Outline:   http://host:3010
+      # VoceChat: https://<your-vocechat-host> (http://<docker-host>:3009)
+      # Outline:   https://<your-outline-host> (http://<docker-host>:3010)
       - "3010:3000"
 
     environment:

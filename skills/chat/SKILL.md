@@ -150,7 +150,7 @@ The Bot API is not send-only: a bot can pull the messages it is allowed to see.
 When the user says "new message for you", "check messages", or "check your inbox":
 
 1. Agents are identity-agnostic: pass `--as <your own agent name>` — the central registry `agents/identities.json` maps it to your call sign and key (e.g. `--as senior-hexa-developer`).
-2. Pull recent messages from the channels relevant to you (default: the project channel `registry-graphai` and `general`).
+2. Pull recent messages from the channels relevant to you (default: the project channel `platform` and `general`).
 3. Optionally pull DMs from your known contacts.
 4. Surface only what is new: remember the highest `mid` you have seen and report newer messages.
 
@@ -553,7 +553,7 @@ Name each variable exactly as that bot's entry in `agents/identities.json`
 (the registry holds the variable names, never the values):
 
 ```
-VOCECHAT_SERVER=http://graphregistry.<your-domain>:3009
+VOCECHAT_SERVER=https://<your-vocechat-host>
 VOCECHAT_<CALL_SIGN>_API_KEY=<key>   # one per bot, named exactly as in agents/identities.json
 ```
 

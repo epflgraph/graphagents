@@ -37,10 +37,10 @@
       "display_name": "General",
       "aliases": ["main", "lobby"]
     },
-    "registry-graphai": {
+    "platform": {
       "gid": 2,
       "display_name": "Platform",
-      "aliases": ["platform channel", "registry-graphai channel", "graph platform"]
+      "aliases": ["registry-graphai", "registry graphai", "registry-graphai channel", "platform channel", "graph platform"]
     }
   }
 }

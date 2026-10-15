@@ -29,7 +29,7 @@ while IFS='|' read -r service status ports; do
 done
 
 printf "\n🔗 Services\n\n"
-printf "   %-12s %s\n" "VoceChat" "http://graphregistry.<your-domain>:3009"
-printf "   %-12s %s\n" "Outline"  "http://graphregistry.<your-domain>:3010"
+printf "   %-12s %s\n" "VoceChat" "https://<your-vocechat-host>"
+printf "   %-12s %s\n" "Outline"  "https://<your-outline-host>"
 
 echo
