@@ -48,6 +48,16 @@
       "gid": 2,
       "display_name": "Platform",
       "aliases": ["registry-graphai", "registry graphai", "registry-graphai channel", "platform channel", "graph platform"]
+    },
+    "architecture": {
+      "gid": 3,
+      "display_name": "Architecture",
+      "aliases": ["arch", "hexagonal", "hexagonal architecture", "software architecture", "system design", "adr", "architecture channel"]
+    },
+    "architecture": {
+      "gid": 3,
+      "display_name": "Architecture",
+      "aliases": ["arch", "hexagonal", "hexagonal architecture", "software architecture", "system design", "adr", "architecture channel"]
     }
   }
 }

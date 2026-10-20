@@ -2,7 +2,9 @@
     "$schema": "https://opencode.ai/config.json",
     "default_agent": "senior-hexa-developer",
     "skills": {
-        "paths": ["skills"]
+        "paths": [
+            "skills"
+        ]
     },
     "references": {
         "dbclient": {
@@ -59,5 +61,31 @@
         },
         "edit": "ask",
         "write": "ask"
+    },
+    "lsp": {
+        "pyright": {
+            "command": [
+                "pyright-langserver",
+                "--stdio"
+            ],
+            "extensions": [
+                ".py",
+                ".pyi"
+            ]
+        },
+        "typescript": {
+            "command": [
+                "typescript-language-server",
+                "--stdio"
+            ],
+            "extensions": [
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".mjs",
+                ".cjs"
+            ]
+        }
     }
 }

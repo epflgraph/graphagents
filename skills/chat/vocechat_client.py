@@ -192,6 +192,28 @@ class VoceChatClient:
         )
         return int(result) if result is not None else 0
 
+    # Public Method: Reply to a specific message (threaded response).
+    # The endpoint takes the parent mid and returns the new message id.
+    def send_reply(
+        self,
+        mid: int,
+        content: str,
+        markdown: bool = False,
+        mentions: list[int] | None = None,
+    ) -> int:
+        content_type = "text/markdown" if markdown else "text/plain"
+        extra_headers: dict[str, str] = {}
+        if mentions:
+            extra_headers["X-Properties"] = json.dumps({"mentions": mentions})
+        result = self._request(
+            "POST",
+            f"/reply/{mid}",
+            body=content,
+            content_type=content_type,
+            extra_headers=extra_headers,
+        )
+        return int(result) if result is not None else 0
+
     # Public Method: Get information about a user by their UID.
     # VoceChat requires the uid both as a path segment and as a query
     # parameter: the route is /user/{uid} but the handler reads the query.
@@ -715,6 +737,13 @@ def main() -> None:
     p_sg.add_argument("--markdown", action="store_true")
     p_sg.add_argument("--mentions", type=int, nargs="*", default=None)
 
+    # reply
+    p_re = sub.add_parser("reply", help="Reply to a specific message (threaded)")
+    p_re.add_argument("--mid", type=int, required=True)
+    p_re.add_argument("--content", required=True)
+    p_re.add_argument("--markdown", action="store_true")
+    p_re.add_argument("--mentions", type=int, nargs="*", default=None)
+
     # user-info
     p_ui = sub.add_parser("user-info", help="Get user info by UID")
     p_ui.add_argument("--uid", type=int, required=True)
@@ -786,6 +815,15 @@ def main() -> None:
             mentions=args.mentions,
         )
         print(f"Sent message to group#{args.gid}, mid={mid}")
+
+    elif args.command == "reply":
+        mid = client.send_reply(
+            mid=args.mid,
+            content=args.content,
+            markdown=args.markdown,
+            mentions=args.mentions,
+        )
+        print(f"Sent reply to mid={args.mid}, new mid={mid}")
 
     elif args.command == "user-info":
         info = client.get_user(args.uid)

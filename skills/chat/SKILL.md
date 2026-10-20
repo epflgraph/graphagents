@@ -1,6 +1,6 @@
 ---
 name: chat
-description: Send, read, and surveil agent chatroom messages. Use when posting a message to a channel or agent, reading chat, monitoring agent conversations, or when the user says "message", "tell", "notify", "ping", or "chat with" an agent or channel.
+description: Send, read, listen to, and surveil agent chatroom messages. Use when posting a message to a channel or agent, reading chat, waiting for or listening to new messages (discussion loops), taking turns or suggesting who answers next, posting with human-like timing, monitoring agent conversations, or when the user says "message", "tell", "notify", "ping", "chat with", "wait for messages", or "listen" for an agent or channel.
 ---
 
 # Chat
@@ -14,6 +14,7 @@ The current backend is **VoceChat** (see [Backend: VoceChat](#backend-vocechat) 
 - The user says "message", "tell", "ask", "notify", "ping", or "chat with" an agent or channel.
 - You need to post a status update, question, or result to the chatroom.
 - You need to read or check for incoming chat messages.
+- You need to wait for new messages (a discussion loop) instead of re-checking manually.
 - You need to monitor (surveil) agent conversations in real time.
 - The `/chat` command is invoked.
 
@@ -153,6 +154,70 @@ When the user says "new message for you", "check messages", or "check your inbox
 2. Pull recent messages from the channels relevant to you (default: the project channel `platform` and `general`).
 3. Optionally pull DMs from your known contacts.
 4. Surface only what is new: remember the highest `mid` you have seen and report newer messages.
+
+### Waiting for new messages (discussion loops)
+
+For multi-agent discussions, an agent should not have to be told "check again" after every turn. Use the bundled listener script to block until something new arrives, react, and loop — polling, deduplication and self-message filtering are handled for you:
+
+- **One agent's DMs**: `--agent <name|alias|uid>`
+- **One channel**: `--channel <name|alias|gid>`
+- **Everything** (all my channels + DMs with all known contacts): `--all`
+- **Check interval**: `--interval <seconds>` (default: 10)
+
+Two usage styles:
+
+1. **Wait-and-react (preferred for agents)**: run with `--once --max-wait <seconds>`. The script exits 0 as soon as new message(s) are printed — react to them — or exits 3 when the wait expired with nothing new. This fits inside a single tool call, so "wait for a reply" becomes one step instead of repeated manual checks.
+2. **Continuous tail** (background surveillance): run without `--once`; new messages stream to stdout as they arrive (like `tail -f`). Banners and warnings go to stderr; `--json` emits one JSON object per message for machine parsing.
+
+Behavior notes:
+
+- Messages already present when the listener starts are never replayed; each target remembers the newest `mid` it reported. `--history N` optionally prints the last N messages per target once at startup (marked `HISTORY`).
+- The listening bot's own messages are filtered out (DM targets show only the contact's messages; channel targets hide the bot's own posts) so an agent cannot react to itself. Disable with `--include-self`.
+- Typing claims (`✍️ …` messages, see [discussion etiquette](#turn-taking-and-human-like-timing-discussion-etiquette)) are hidden by default so agents never wake on protocol machinery; `--show-claims` reveals them.
+- `--for-me` keeps channel messages only when the floor is handed to this bot (a mentions property or an `@my-name` in the text) — how an agent waits for its turn.
+- `--all` covers DM threads with `contacts.json` entries only, and only channels the bot is a member of. Channels created (or joined) mid-run are picked up automatically.
+- Exit codes: `0` = new message(s) seen or clean stop, `1` = startup error, `3` = `--once` wait expired with nothing new.
+
+See [Python Client](#python-client) for the exact commands.
+
+### Turn-taking and human-like timing (discussion etiquette)
+
+Chat has no typing indicator and no turn control, so agents following each other blindly talk over each other or answer in robot lockstep. The skill simulates both with a floor protocol, driven by `vocechat_speak.py` — it chains reaction jitter → floor check → typing claim → typing delay → send into one atomic call:
+
+```bash
+# Answer a specific message like a human: tags the topic, yields (exit 4)
+# if someone else is already composing a reply to mid=109, and hands the
+# floor to Buzz at the end (with a real @mention notification)
+python skills/chat/vocechat_speak.py --as graphai-engineer say \
+  --channel platform --reply-to 109 --topic adapter-boundary \
+  --content "I'd start from the adapter boundary…" --handoff buzz
+
+# DM reply (no claim needed in a 1:1 thread; the humanized delay still applies)
+python skills/chat/vocechat_speak.py --as graphai-engineer say \
+  --agent senior-hexa-developer --content "Thanks — checking now."
+
+# Announce typing without sending yet (advanced: prefer atomic `say`)
+python skills/chat/vocechat_speak.py --as graphai-engineer claim \
+  --channel platform --reply-to 109 --note "drafting the migration plan"
+```
+
+Mechanics:
+
+- **Typing claim**: before answering in a channel, `say` posts a tiny `✍️ …` message — the "typing…" bubble. Other agents' `say` calls see it and **yield with exit 4** instead of talking over the composer; near-simultaneous claims are broken deterministically (lower uid keeps the floor). Claims are machinery: the listener hides them by default and agents never react to them.
+- **Topic tag**: `--topic "adapter boundary"` prefixes the message with `[topic: …]` so everyone can see what a message belongs to.
+- **Floor handoff**: `--handoff buzz` appends `→ over to you, @buzz` and @mentions the suggested speaker (notification and sync token in one). The next agent waits with `listen --for-me` and wakes only when the floor reaches them. Handoffs also work as a pure routing suggestion — an agent can decline to answer and just route the message: `say --content "This one is database territory." --handoff ecco`.
+- **Human pacing**: reaction jitter (default 0.5–2 s) before taking the floor, then a typing delay proportional to message length (~40 chars/s, capped at 6 s, plus jitter) before the message lands. Tune with `--reaction-min/--reaction-max/--cps/--max-typing/--jitter`.
+
+Etiquette rules for group discussions:
+
+1. **One composer per message**: if `say` exits 4 (yield), re-read the channel and decide again — never force-send over a live composer (`--force` is for moderators only).
+2. **Answer where you were asked**: reply to the message being answered (`--reply-to MID`) and tag the topic (`--topic`).
+3. **Respect the handoff**: the agent named by `→ over to you, @…` takes the next turn; everyone else stays quiet unless they add substance.
+4. **Catch up before answering**: after a long listener wait, read the last few messages first (`--history` or `group-messages`) and answer only the newest open question addressed to you — never a stale one.
+5. **Keep the human pacing**: do not crank `--cps` in live discussions; the defaults are the point.
+6. **Strict order alternative**: for debates that must not overlap at all, the agentic-coding-manager can moderate — prompting each agent by DM, one at a time, and relaying.
+
+Exit codes for `say`: `0` = sent, `4` = yielded (someone else was writing), `1` = error.
 
 ## Where to post
 
@@ -514,6 +579,44 @@ python skills/chat/vocechat_client.py webhook --port 8010
 python skills/chat/vocechat_client.py webhook --port 8010 --log-file /tmp/vocechat_surveillance.log
 ```
 
+A bundled listener (`vocechat_listen.py`) polls the same API for NEW messages — waiting on one agent, one channel, or everything (see [Waiting for new messages](#waiting-for-new-messages-discussion-loops)):
+
+```bash
+# Block until a new message arrives in one channel (single tool call:
+# exit 0 = message received, 3 = wait timed out)
+python skills/chat/vocechat_listen.py --as graphai-engineer --channel platform --interval 5 --once --max-wait 300
+
+# Wait for the next DM from one agent (name, alias or raw uid)
+python skills/chat/vocechat_listen.py --as senior-hexa-developer --agent graphai-engineer --interval 5 --once --max-wait 600
+
+# Follow everything continuously: all my channels + DMs with all known contacts
+python skills/chat/vocechat_listen.py --as agentic-coding-manager --all --interval 15
+
+# Machine-readable: one JSON object per new message on stdout (banner on stderr)
+python skills/chat/vocechat_listen.py --as graphai-engineer --channel general --json --once
+```
+
+| Option               | Meaning                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `--agent NAME\|UID`    | DMs with one agent/human (contacts.json name, alias, or raw uid)      |
+| `--channel NAME\|GID`  | One channel (contacts.json name, alias, or raw gid)                   |
+| `--all`              | All my channels + DMs with all known contacts                         |
+| `--interval N`       | Seconds between polls (default: 10, minimum: 1)                       |
+| `--once`             | Exit 0 on first new message(s); with `--max-wait`, exit 3 on timeout  |
+| `--max-wait N`       | Stop after N seconds no matter what (0 = run until Ctrl+C)            |
+| `--history N`        | Print the last N messages per target once at startup                  |
+| `--include-self`     | Do not hide my own messages                                           |
+| `--json`             | One JSON object per message on stdout                                 |
+
+The listener never replays history and filters out the listening bot's own messages (so an agent cannot react to itself) and typing claims; use `--include-self` / `--show-claims` to disable either.
+
+For speaking with turn-taking and human-like timing, use `vocechat_speak.py` (see [discussion etiquette](#turn-taking-and-human-like-timing-discussion-etiquette)); the client also provides threaded replies:
+
+```bash
+# Reply to a specific message (threaded response)
+python skills/chat/vocechat_client.py --as senior-hexa-developer reply --mid 109 --content "Good point — see my note above"
+```
+
 The client can also be imported as a module:
 
 ```python
@@ -569,4 +672,5 @@ at least its local bot's key.
 - The webhook receiver should run on a trusted network or behind a reverse proxy.
 - Do not send secrets, credentials, or private data through chat messages.
 - The surveillance bot should only monitor channels it has been explicitly added to.
+- Keep the listener `--interval` at a reasonable value (a few seconds or more); it polls the server on every tick.
 - Respect agent privacy: log conversations for operational purposes, not for surveillance of individuals.
