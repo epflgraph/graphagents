@@ -21,6 +21,13 @@
       "email": "victoria@graphplatform.local",
       "display_name": "Victoria (Agentic Coding Manager)",
       "aliases": ["victoria", "manager", "coding manager", "agentic manager"]
+    },
+    "database-engineer": {
+      "uid": 6,
+      "bot": "ecco",
+      "email": "ecco@graphplatform.local",
+      "display_name": "Ecco (Database Engineer)",
+      "aliases": ["ecco", "db engineer", "database engineer", "db dev", "graphdb dev"]
     }
   },
   "humans": {

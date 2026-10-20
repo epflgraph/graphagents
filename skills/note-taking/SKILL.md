@@ -18,7 +18,7 @@ The concepts in this top section are technology-agnostic; only the backend secti
 | `Search`        | Graph Search                    | full-stack-developer      |
 | `Ontology`      | Graph Ontology                  | —                         |
 | `Agents`        | Graph Agents (the agent repo)   | agentic-coding-manager    |
-| `DB Client`     | MySQL/MariaDB CLI client        | —                         |
+| `DB Client`     | MySQL/MariaDB CLI client        | database-engineer         |
 | `ES Client`     | ElasticSearch CLI client        | —                         |
 | `SDK`           | Graph SDK (not developed yet)   | —                         |
 | `Dashboard`     | GraphDashboard monitoring stack | systems-monitoring-engineer |

@@ -24,6 +24,14 @@
         "outline": "OUTLINE_VICTORIA_API_KEY",
         "vocechat": "VOCECHAT_VICTORIA_API_KEY"
       }
+    },
+    "database-engineer": {
+      "call_sign": "ecco",
+      "display_name": "Ecco",
+      "keys": {
+        "outline": "OUTLINE_ECCO_API_KEY",
+        "vocechat": "VOCECHAT_ECCO_API_KEY"
+      }
     }
   }
 }

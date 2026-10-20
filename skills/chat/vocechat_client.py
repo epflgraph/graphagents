@@ -36,6 +36,7 @@ import argparse
 import base64
 import json
 import os
+import ssl
 import sys
 import time
 import traceback
@@ -44,6 +45,18 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+try:  # Optional: trust certifi's CA bundle when Python's default paths are incomplete.
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
+
+
+def _ssl_context():
+    """Return an SSL context trusting certifi's CA bundle, or None for the default."""
+    if certifi is not None:
+        return ssl.create_default_context(cafile=certifi.where())
+    return None
 
 
 #==================#
@@ -84,7 +97,7 @@ class VoceChatClient:
 
         # Send the request and read the response.
         try:
-            with urlopen(req, timeout=self.timeout) as resp:
+            with urlopen(req, timeout=self.timeout, context=_ssl_context()) as resp:
                 raw = resp.read()
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace") if exc.fp else ""

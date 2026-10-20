@@ -36,11 +36,24 @@ import argparse
 import json
 import os
 import re
+import ssl
 import sys
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+try:  # Optional: trust certifi's CA bundle when Python's default paths are incomplete.
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
+
+
+def _ssl_context():
+    """Return an SSL context trusting certifi's CA bundle, or None for the default."""
+    if certifi is not None:
+        return ssl.create_default_context(cafile=certifi.where())
+    return None
 
 
 class OutlineError(RuntimeError):
@@ -78,7 +91,7 @@ class OutlineClient:
 
         # Send the request and parse the standard Outline envelope.
         try:
-            with urlopen(req, timeout=self.timeout) as resp:
+            with urlopen(req, timeout=self.timeout, context=_ssl_context()) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
         except HTTPError as exc:
             detail = ""

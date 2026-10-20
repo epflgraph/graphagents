@@ -4,6 +4,13 @@
     "skills": {
         "paths": ["skills"]
     },
+    "references": {
+        "dbclient": {
+            "path": "~/dev/graphdb-client",
+            "description": "Graph DB Client repo (MySQL/MariaDB CLI utility) — owned by the database-engineer agent (Ecco). Use for its source, config contract, CLI commands, and tests.",
+            "hidden": true
+        }
+    },
     "provider": {
         "epfl": {
             "npm": "@ai-sdk/openai-compatible",
