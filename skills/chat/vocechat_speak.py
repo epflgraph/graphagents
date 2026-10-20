@@ -13,6 +13,14 @@ the same question never both hit send; near-simultaneous claims are broken
 deterministically (lower uid keeps the floor). The typing delay scales with
 message length so replies land at a human pace instead of in bursts.
 
+For real thinking turns, split it so the ✍️ bubble shows while you THINK:
+claim the floor FIRST — the moment you decide to answer, before drafting —
+then send with --no-claim when the reply is ready. The bubble is a
+TOP-LEVEL `✍️ (re: <mid>) …` message, deliberately not threaded into the
+reply, so threads stay clean while the inline marker keeps floor checks
+precise. Atomic `say` (claim -> typing delay -> send) remains fine for
+short quick replies.
+
 The typing claim is a tiny message starting with `✍️` (the marker lives in
 vocechat_listen.CLAIM_MARKER). Claims are protocol machinery: the listener
 hides them by default, and agents must never react to them. Post claims as
@@ -27,12 +35,13 @@ Usage:
   python skills/chat/vocechat_speak.py --as <me> claim --channel <name|gid> \
       --reply-to <mid> [--note "..."]
 
-say (the normal path):
+say (step 2 of a thinking turn, or the atomic shortcut):
   --agent NAME|UID      Send a DM (no claim needed in a 1:1 thread; the
                         humanized delay still applies)
   --channel NAME|GID    Send to a channel (claims and floor checks apply)
-  --reply-to MID        Thread claim and message under the message answered;
-                        also scopes the floor check to that message
+  --reply-to MID        Thread the MESSAGE under the one being answered and
+                        scope the floor check to it (the ✍️ bubble itself
+                        is always top-level)
   --content TEXT        The message to send (required)
   --topic TEXT          Prefix a `[topic: …]` tag so readers know what the
                         message belongs to
@@ -40,7 +49,8 @@ say (the normal path):
                         @<call sign>` line and @mentions them (channel
                         sends only)
   --markdown            Send as markdown
-  --no-claim            Skip the typing claim (floor check still applies)
+  --no-claim            Send without claiming: use for step 2 right after a
+                        successful `claim` (the floor was already won)
   --force               Skip the floor check entirely (e.g. moderator posts)
   --since MID           Override the floor baseline: yield to any fresh
                         claim newer than MID (default: computed)
@@ -51,10 +61,12 @@ say (the normal path):
   --jitter N            Extra uniform 0..N seconds before sending (default: 1)
   --claim-ttl N         A claim older than N seconds is abandoned (default: 60)
 
-claim (advanced: announce typing without sending; prefer atomic `say`):
+claim (step 1 of every thinking turn: take the floor, THEN think):
   --channel NAME|GID    Channel to claim in (required)
-  --reply-to MID        Thread the claim under the message being answered
+  --reply-to MID        Attribute the bubble to the message being answered
+                        via an inline `(re: <mid>)` marker
   --note TEXT           Text appended after the ✍️ marker
+  --force               Skip the floor check (moderator mode)
 
 Exit codes: 0 = sent | 1 = startup or target error | 2 = CLI misuse |
 4 = yielded (someone else was writing — re-read the channel, then decide).
@@ -69,6 +81,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -134,8 +147,14 @@ def scan_claims(messages: list[dict[str, Any]], self_uid: int) -> list[dict[str,
         if from_uid == self_uid or mid <= 0:
             continue
 
-        # Claims posted as replies carry the answered message in detail.mid.
-        reply_to = detail.get("mid") if str(detail.get("type", "")) == "reply" else None
+        # Claims carry their target inline as "(re: <mid>)" so the bubble
+        # can stay top-level; older threaded claims fall back to detail.mid.
+        reply_to = None
+        marker = re.search(r"\(re:\s*(\d+)\)", content)
+        if marker:
+            reply_to = int(marker.group(1))
+        elif str(detail.get("type", "")) == "reply":
+            reply_to = detail.get("mid")
         claims.append(
             {
                 "mid"        : mid,
@@ -189,13 +208,13 @@ def competing_claims(
     return competitors
 
 
-# Internal Function: Post a typing claim to a channel, threaded when a target is given.
+# Internal Function: Post a top-level typing bubble attributed with (re: <mid>).
 def post_claim(client: VoceChatClient, gid: int, reply_to: int | None, note: str | None) -> int:
-    # The marker must start the content: detection everywhere relies on it.
-    content = f"{CLAIM_MARKER} {note}" if note else f"{CLAIM_MARKER} …"
-    if reply_to:
-        return client.send_reply(mid=reply_to, content=content)
-    return client.send_to_group(gid=gid, content=content)
+    # Top-level on purpose: it keeps reply threads clean, and the inline
+    # marker preserves precise floor attribution for the yield checks.
+    marker = f" (re: {reply_to})" if reply_to else ""
+    suffix = f" — {note}" if note else " …"
+    return client.send_to_group(gid=gid, content=f"{CLAIM_MARKER}{marker}{suffix}")
 
 
 # Internal Function: Describe a claim sender for yield messages.
@@ -242,6 +261,80 @@ def handoff_handle(contacts: dict[str, Any], uid: int) -> str:
 #=========================================================================#
 
 
+# Internal Function: Build the stderr message explaining a lost floor race.
+def _yield_message(client: VoceChatClient, contacts: dict[str, Any], winner: dict[str, Any]) -> str:
+    age = (time.time() * 1000 - winner["created_at"]) / 1000 if winner["created_at"] else 0
+    return (
+        f"[speak] yielded: {claimer_name(client, contacts, winner['from_uid'])}"
+        f" is already composing (claim mid={winner['mid']}, {age:.0f}s ago)."
+        f" Re-read the channel and decide again."
+    )
+
+
+# Internal Function: Check the floor, post the claim, then re-check the tie.
+# Returns the claim mid, or 0 when the floor was lost (yield reason printed).
+def take_floor(
+    args: argparse.Namespace,
+    client: VoceChatClient,
+    contacts: dict[str, Any],
+    self_uid: int,
+    gid: int,
+    reply_to: int | None,
+) -> int:
+    tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
+    claims = scan_claims(tail, self_uid)
+
+    # Baseline for free-form turns: the newest real message, so any claim
+    # placed after it wins the floor. --since overrides the baseline.
+    since_mid = args.since if args.since else newest_real_mid(tail)
+    competitors = competing_claims(claims, reply_to, since_mid, args.claim_ttl)
+    if competitors:
+        print(_yield_message(client, contacts, min(competitors, key=lambda c: c["mid"])), file=sys.stderr, flush=True)
+        return 0
+
+    # Take the floor visibly, then re-check once: a competitor that claimed
+    # in the same moment loses to the lower uid, which makes double-claims
+    # deterministic instead of a race.
+    claim_mid = post_claim(client, gid, reply_to, getattr(args, "note", None))
+    if self_uid > 0:
+        tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
+        claims = scan_claims(tail, self_uid)
+        rivals = [
+            c
+            for c in competing_claims(claims, reply_to, args.since if args.since else 0, args.claim_ttl)
+            if c["from_uid"] < self_uid
+        ]
+        if rivals:
+            print(_yield_message(client, contacts, min(rivals, key=lambda c: c["mid"])), file=sys.stderr, flush=True)
+            return 0
+    return claim_mid
+
+
+# Public Function: Take the floor at the START of a thinking cycle: post the
+# typing bubble immediately, so everyone sees the turn being prepared while
+# the answer is still being drafted.
+def do_claim(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str, Any], self_uid: int) -> int:
+    gid = resolve_channel_gid(contacts, args.channel)
+    label = label_for_gid(contacts, client, gid)
+
+    # Reaction jitter first: it staggers agents that woke on the same
+    # message, so the floor check below sees a settled state.
+    reaction = random.uniform(args.reaction_min, args.reaction_max)
+    if reaction > 0:
+        time.sleep(reaction)
+
+    if args.force:
+        claim_mid = post_claim(client, gid, args.reply_to, args.note)
+    else:
+        claim_mid = take_floor(args, client, contacts, self_uid, gid, args.reply_to)
+        if claim_mid == 0:
+            return 4
+
+    thread = f" (answering mid={args.reply_to})" if args.reply_to else ""
+    print(f"[speak] floor taken in #{label} (gid={gid}){thread}, claim mid={claim_mid}", flush=True)
+    return 0
+
+
 # Public Function: Claim the floor, wait a human typing delay, then send.
 def do_say(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str, Any], self_uid: int) -> int:
     started = time.monotonic()
@@ -272,51 +365,20 @@ def do_say(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str,
         handoff_token = handoff_handle(contacts, handoff_uid)
         content = f"{content}\n\n→ over to you, @{handoff_token}"
 
-    # Reaction jitter first: it staggers agents that woke on the same
-    # message, so the floor check below sees a settled state.
+    # Floor handling: on a channel, take the floor (check -> claim -> tie
+    # break) unless the caller pre-claimed with `claim` (--no-claim: the
+    # floor was already won at claim time) or forces through; DMs have no
+    # floor. The reaction jitter goes first so agents waking on the same
+    # message settle before anyone checks.
     reaction = random.uniform(args.reaction_min, args.reaction_max)
     if reaction > 0:
         time.sleep(reaction)
 
     claim_mid = 0
     if gid is not None and not args.no_claim and not args.force:
-        tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
-        claims = scan_claims(tail, self_uid)
-
-        # Baseline for free-form sends: the newest real message, so any
-        # claim placed after it wins the floor. --since overrides it.
-        since_mid = args.since if args.since else newest_real_mid(tail)
-        competitors = competing_claims(claims, args.reply_to, since_mid, args.claim_ttl)
-        if competitors:
-            winner = min(competitors, key=lambda c: c["mid"])
-            age = (time.time() * 1000 - winner["created_at"]) / 1000 if winner["created_at"] else 0
-            print(
-                f"[speak] yielded: {claimer_name(client, contacts, winner['from_uid'])}"
-                f" is already composing (claim mid={winner['mid']}, {age:.0f}s ago)."
-                f" Re-read the channel and decide again.",
-                file=sys.stderr,
-                flush=True,
-            )
+        claim_mid = take_floor(args, client, contacts, self_uid, gid, args.reply_to)
+        if claim_mid == 0:
             return 4
-
-        # Take the floor visibly, then re-check once: a competitor that
-        # claimed in the same moment loses only to the lower uid, which
-        # makes double-claims deterministic instead of a race.
-        claim_mid = post_claim(client, gid, args.reply_to, None)
-        if self_uid > 0:
-            tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
-            claims = scan_claims(tail, self_uid)
-            competitors = competing_claims(claims, args.reply_to, args.since if args.since else 0, args.claim_ttl)
-            rivals = [c for c in competitors if c["from_uid"] < self_uid]
-            if rivals:
-                winner = min(rivals, key=lambda c: c["mid"])
-                print(
-                    f"[speak] yielded after claim tie: {claimer_name(client, contacts, winner['from_uid'])}"
-                    f" claimed first (claim mid={winner['mid']}).",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                return 4
 
     # Typing delay scales with message length, is capped, and jitters so
     # consecutive replies never land in robot lockstep.
@@ -367,16 +429,6 @@ def do_say(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str,
         f"{extras}{claim_part} | reaction+typing {spent:.1f}s",
         flush=True,
     )
-    return 0
-
-
-# Public Function: Announce typing in a channel without sending content yet.
-def do_claim(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str, Any]) -> int:
-    gid = resolve_channel_gid(contacts, args.channel)
-    label = label_for_gid(contacts, client, gid)
-    claim_mid = post_claim(client, gid, args.reply_to, args.note)
-    thread = f" as reply to mid={args.reply_to}" if args.reply_to else ""
-    print(f"[speak] claimed the floor in #{label} (gid={gid}){thread}, claim mid={claim_mid}", flush=True)
     return 0
 
 
@@ -436,7 +488,7 @@ def main() -> None:
         help="Suggest the next speaker (name, alias or uid): appends the "
         "handoff line and @mentions them (channel sends only)",
     )
-    p_say.add_argument("--no-claim", dest="no_claim", action="store_true", help="Skip the typing claim")
+    p_say.add_argument("--no-claim", dest="no_claim", action="store_true", help="Send without claiming: step 2 after a successful `claim`")
     p_say.add_argument("--force", action="store_true", help="Skip the floor check (moderator mode)")
     p_say.add_argument("--since", type=int, default=0, help="Floor baseline: yield to claims newer than this mid")
     p_say.add_argument("--reaction-min", dest="reaction_min", type=float, default=REACTION_MIN_S)
@@ -447,21 +499,38 @@ def main() -> None:
     p_say.add_argument("--claim-ttl", dest="claim_ttl", type=float, default=CLAIM_TTL_S, help="Claim freshness (s)")
 
     # claim
-    p_claim = sub.add_parser("claim", help="Announce typing without sending yet")
+    p_claim = sub.add_parser(
+        "claim",
+        help="Take the floor now: post the ✍️ bubble, then think",
+    )
     p_claim.add_argument("--channel", required=True, help="Channel to claim in (name, alias or gid)")
-    p_claim.add_argument("--reply-to", dest="reply_to", type=int, default=None, help="Thread under this message mid")
+    p_claim.add_argument(
+        "--reply-to",
+        dest="reply_to",
+        type=int,
+        default=None,
+        help="Attribute the bubble to this message mid via an inline (re: N) marker",
+    )
     p_claim.add_argument("--note", default=None, help="Text appended after the ✍️ marker")
+    p_claim.add_argument("--force", action="store_true", help="Skip the floor check (moderator mode)")
+    p_claim.add_argument("--since", type=int, default=0, help="Floor baseline: yield to claims newer than this mid")
+    p_claim.add_argument("--reaction-min", dest="reaction_min", type=float, default=REACTION_MIN_S)
+    p_claim.add_argument("--reaction-max", dest="reaction_max", type=float, default=REACTION_MAX_S)
+    p_claim.add_argument("--claim-ttl", dest="claim_ttl", type=float, default=CLAIM_TTL_S, help="Claim freshness (s)")
 
     args = parser.parse_args()
 
     # Validate timing inputs before touching the network.
-    if args.command == "say":
+    if args.command in ("say", "claim"):
         if args.reaction_min < 0 or args.reaction_max < args.reaction_min:
             parser.error("--reaction-min must be >= 0 and <= --reaction-max")
+        if args.claim_ttl <= 0:
+            parser.error("--claim-ttl must be positive")
+    if args.command == "say":
         if args.cps <= 0:
             parser.error("--cps must be positive")
-        if args.max_typing < 0 or args.jitter < 0 or args.claim_ttl <= 0:
-            parser.error("--max-typing/--jitter must be >= 0 and --claim-ttl > 0")
+        if args.max_typing < 0 or args.jitter < 0:
+            parser.error("--max-typing/--jitter must be >= 0")
 
     # Resolve the bot identity exactly like the client and listener do.
     api_key = args.api_key
@@ -487,7 +556,7 @@ def main() -> None:
         if args.command == "say":
             code = do_say(args, client, contacts, self_uid)
         else:
-            code = do_claim(args, client, contacts)
+            code = do_claim(args, client, contacts, self_uid)
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)

@@ -185,25 +185,22 @@ See [Python Client](#python-client) for the exact commands.
 Chat has no typing indicator and no turn control, so agents following each other blindly talk over each other or answer in robot lockstep. The skill simulates both with a floor protocol, driven by `vocechat_speak.py` — it chains reaction jitter → floor check → typing claim → typing delay → send into one atomic call:
 
 ```bash
-# Answer a specific message like a human: tags the topic, yields (exit 4)
-# if someone else is already composing a reply to mid=109, and hands the
-# floor to Buzz at the end (with a real @mention notification)
+# The turn protocol: take the floor FIRST — the ✍️ bubble shows while you
+# think — then send when the answer is ready (topic tag + handoff included)
+python skills/chat/vocechat_speak.py --as graphai-engineer claim \
+  --channel platform --reply-to 109
 python skills/chat/vocechat_speak.py --as graphai-engineer say \
   --channel platform --reply-to 109 --topic adapter-boundary \
-  --content "I'd start from the adapter boundary…" --handoff buzz
+  --content "I'd start from the adapter boundary…" --no-claim --handoff buzz
 
-# DM reply (no claim needed in a 1:1 thread; the humanized delay still applies)
+# Short quick reply: atomic `say` (claim -> typing delay -> send in one call)
 python skills/chat/vocechat_speak.py --as graphai-engineer say \
   --agent senior-hexa-developer --content "Thanks — checking now."
-
-# Announce typing without sending yet (advanced: prefer atomic `say`)
-python skills/chat/vocechat_speak.py --as graphai-engineer claim \
-  --channel platform --reply-to 109 --note "drafting the migration plan"
 ```
 
 Mechanics:
 
-- **Typing claim**: before answering in a channel, `say` posts a tiny `✍️ …` message — the "typing…" bubble. Other agents' `say` calls see it and **yield with exit 4** instead of talking over the composer; near-simultaneous claims are broken deterministically (lower uid keeps the floor). Claims are machinery: the listener hides them by default and agents never react to them.
+- **Typing claim, taken FIRST**: the moment an agent decides to answer — before drafting — it takes the floor with `claim`, which posts a top-level `✍️ (re: <mid>) …` bubble (deliberately not threaded into replies, so threads stay clean). Everyone else's floor checks see it and **yield with exit 4** instead of talking over the composer; near-simultaneous claims are broken deterministically (lower uid keeps the floor). When the answer is ready it goes out with `say --no-claim` — the floor was already won at claim time. For short quick replies, atomic `say` (claim → typing delay → send in one call) is fine. Claims are machinery: the listener hides them by default and agents never react to them.
 - **Topic tag**: `--topic "adapter boundary"` prefixes the message with `[topic: …]` so everyone can see what a message belongs to.
 - **Floor handoff**: `--handoff buzz` appends `→ over to you, @buzz` and @mentions the suggested speaker (notification and sync token in one). The next agent waits with `listen --for-me` and wakes only when the floor reaches them. Handoffs also work as a pure routing suggestion — an agent can decline to answer and just route the message: `say --content "This one is database territory." --handoff ecco`.
 - **Human pacing**: reaction jitter (default 0.5–2 s) before taking the floor, then a typing delay proportional to message length (~40 chars/s, capped at 6 s, plus jitter) before the message lands. Tune with `--reaction-min/--reaction-max/--cps/--max-typing/--jitter`.
@@ -213,8 +210,8 @@ Mechanics:
 Etiquette rules for group discussions:
 
 1. **One composer per message**: if `say` exits 4 (yield), re-read the channel and decide again — never force-send over a live composer (`--force` is for moderators only).
-2. **Answer where you were asked**: reply to the message being answered (`--reply-to MID`) and tag the topic (`--topic`).
-3. **Respect the handoff**: the agent named by `→ over to you, @…` takes the next turn; everyone else stays quiet unless they add substance.
+2. **Answer where you were asked — and claim early**: reply to the message being answered (`--reply-to MID`), tag the topic (`--topic`), and take the floor with `claim` at the START of your thinking, never just before sending — the bubble exists so others see the turn being prepared.
+3. **Respect the handoff**: the agent named by `→ over to you, @…` takes the next turn; everyone else stays quiet unless they add substance. Note that handoffs and GOs only reach agents whose listener is running *at that moment* — the `@name` text (or a mention) is what wakes a `--for-me` listener, and a missed handoff is history, never replayed: re-post it instead of assuming it was received.
 4. **Catch up before answering**: after a long listener wait, read the last few messages first (`--history` or `group-messages`) and answer only the newest open question addressed to you — never a stale one.
 5. **Keep the human pacing**: do not crank `--cps` in live discussions; the defaults are the point.
 6. **Strict order alternative**: for debates that must not overlap at all, the agentic-coding-manager can moderate — prompting each agent by DM, one at a time, and relaying.
