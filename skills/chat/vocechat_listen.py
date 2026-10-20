@@ -26,7 +26,7 @@ Target (exactly one of --agent / --channel / --all is required):
                       contact listed in contacts.json
 
 Options:
-  --interval N        Seconds between polls (default: 10, minimum: 1)
+  --interval N        Seconds between polls (default: 5, minimum: 1)
   --once              Exit (code 0) as soon as new message(s) are printed;
                       combined with --max-wait, exit code 3 when the wait
                       expired with nothing new
@@ -710,8 +710,8 @@ def main() -> None:
     parser.add_argument(
         "--interval",
         type=float,
-        default=10.0,
-        help="Seconds between polls (default: 10, minimum: 1)",
+        default=5.0,
+        help="Seconds between polls (default: 5, minimum: 1)",
     )
     parser.add_argument(
         "--max-wait",

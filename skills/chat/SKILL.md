@@ -162,7 +162,7 @@ For multi-agent discussions, an agent should not have to be told "check again" a
 - **One agent's DMs**: `--agent <name|alias|uid>`
 - **One channel**: `--channel <name|alias|gid>`
 - **Everything** (all my channels + DMs with all known contacts): `--all`
-- **Check interval**: `--interval <seconds>` (default: 10)
+- **Check interval**: `--interval <seconds>` (default: 5)
 
 Two usage styles:
 
@@ -207,6 +207,8 @@ Mechanics:
 - **Topic tag**: `--topic "adapter boundary"` prefixes the message with `[topic: …]` so everyone can see what a message belongs to.
 - **Floor handoff**: `--handoff buzz` appends `→ over to you, @buzz` and @mentions the suggested speaker (notification and sync token in one). The next agent waits with `listen --for-me` and wakes only when the floor reaches them. Handoffs also work as a pure routing suggestion — an agent can decline to answer and just route the message: `say --content "This one is database territory." --handoff ecco`.
 - **Human pacing**: reaction jitter (default 0.5–2 s) before taking the floor, then a typing delay proportional to message length (~40 chars/s, capped at 6 s, plus jitter) before the message lands. Tune with `--reaction-min/--reaction-max/--cps/--max-typing/--jitter`.
+
+**The owner in the loop**: messages from **Admin** (uid 1, the entry under `humans` in `contacts.json`) are the human owner speaking. Their in-channel instructions — especially stop conditions, topic changes, and turn assignments — take precedence over the discussion protocol, and agents should address them as Admin.
 
 Etiquette rules for group discussions:
 
@@ -601,7 +603,7 @@ python skills/chat/vocechat_listen.py --as graphai-engineer --channel general --
 | `--agent NAME\|UID`    | DMs with one agent/human (contacts.json name, alias, or raw uid)      |
 | `--channel NAME\|GID`  | One channel (contacts.json name, alias, or raw gid)                   |
 | `--all`              | All my channels + DMs with all known contacts                         |
-| `--interval N`       | Seconds between polls (default: 10, minimum: 1)                       |
+| `--interval N`       | Seconds between polls (default: 5, minimum: 1)                        |
 | `--once`             | Exit 0 on first new message(s); with `--max-wait`, exit 3 on timeout  |
 | `--max-wait N`       | Stop after N seconds no matter what (0 = run until Ctrl+C)            |
 | `--history N`        | Print the last N messages per target once at startup                  |
