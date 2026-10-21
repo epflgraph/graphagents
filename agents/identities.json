@@ -32,6 +32,14 @@
         "outline": "OUTLINE_ECCO_API_KEY",
         "vocechat": "VOCECHAT_ECCO_API_KEY"
       }
+    },
+    "senior-software-architect": {
+      "call_sign": "filippo",
+      "display_name": "Filippo",
+      "keys": {
+        "outline": "OUTLINE_FILIPPO_API_KEY",
+        "vocechat": "VOCECHAT_FILIPPO_API_KEY"
+      }
     }
   }
 }

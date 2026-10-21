@@ -28,6 +28,13 @@
       "email": "ecco@graphplatform.local",
       "display_name": "Ecco (Database Engineer)",
       "aliases": ["ecco", "db engineer", "database engineer", "db dev", "graphdb dev"]
+    },
+    "senior-software-architect": {
+      "uid": 7,
+      "bot": "filippo",
+      "email": "filippo@graphplatform.local",
+      "display_name": "Filippo (Senior Software Architect)",
+      "aliases": ["filippo", "architect", "software architect", "c4", "arch viz"]
     }
   },
   "humans": {
@@ -48,11 +55,6 @@
       "gid": 2,
       "display_name": "Platform",
       "aliases": ["registry-graphai", "registry graphai", "registry-graphai channel", "platform channel", "graph platform"]
-    },
-    "architecture": {
-      "gid": 3,
-      "display_name": "Architecture",
-      "aliases": ["arch", "hexagonal", "hexagonal architecture", "software architecture", "system design", "adr", "architecture channel"]
     },
     "architecture": {
       "gid": 3,

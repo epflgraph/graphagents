@@ -11,6 +11,11 @@
             "path": "~/dev/graphdb-client",
             "description": "Graph DB Client repo (MySQL/MariaDB CLI utility) — owned by the database-engineer agent (Ecco). Use for its source, config contract, CLI commands, and tests.",
             "hidden": true
+        },
+        "grapharchitecture": {
+            "path": "~/dev/grapharchitecture",
+            "description": "Graph Architecture repo (C4 platform architecture graph files + React Flow canvas) — owned by the senior-software-architect agent (Filippo). Use for platform.graph.yaml, services/*.graph.yaml, schema/v1.json, validate_graph.py, and the canvas app.",
+            "hidden": true
         }
     },
     "provider": {
