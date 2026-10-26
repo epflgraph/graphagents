@@ -35,6 +35,18 @@
     "sdk": {
       "id": "3db059b0-47d8-427b-b8ef-46468bcf5d0d",
       "aliases": ["graph sdk"]
+    },
+    "architecture": {
+      "id": "64826717-6bbc-4cb8-abe8-4e79a78706f9",
+      "aliases": ["c4", "arch", "platform architecture"]
+    },
+    "authentication": {
+      "id": "6aeba1b1-b134-4e1c-aeb0-7a683f97834e",
+      "aliases": ["auth", "graphauth"]
+    },
+    "cybersecurity": {
+      "id": "2323a00d-ef8f-4b3a-b1ad-8567fca290b9",
+      "aliases": ["cyber", "security", "graphsecurity"]
     }
   }
 }

@@ -40,6 +40,14 @@
         "outline": "OUTLINE_FILIPPO_API_KEY",
         "vocechat": "VOCECHAT_FILIPPO_API_KEY"
       }
+    },
+    "cybersecurity-engineer": {
+      "call_sign": "guy",
+      "display_name": "Guy",
+      "keys": {
+        "outline": "OUTLINE_GUY_API_KEY",
+        "vocechat": "VOCECHAT_GUY_API_KEY"
+      }
     }
   }
 }

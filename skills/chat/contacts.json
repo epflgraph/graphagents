@@ -35,6 +35,13 @@
       "email": "filippo@graphplatform.local",
       "display_name": "Filippo (Senior Software Architect)",
       "aliases": ["filippo", "architect", "software architect", "c4", "arch viz"]
+    },
+    "cybersecurity-engineer": {
+      "uid": 8,
+      "bot": "guy",
+      "email": "guy@graphplatform.local",
+      "display_name": "Guy (Cybersecurity Engineer)",
+      "aliases": ["guy", "security", "cybersecurity", "secops", "pen tester", "auth dev"]
     }
   },
   "humans": {

@@ -16,6 +16,16 @@
             "path": "~/dev/grapharchitecture",
             "description": "Graph Architecture repo (C4 platform architecture graph files + React Flow canvas) — owned by the senior-software-architect agent (Filippo). Use for platform.graph.yaml, services/*.graph.yaml, schema/v1.json, validate_graph.py, and the canvas app.",
             "hidden": true
+        },
+        "graphauth": {
+            "path": "~/dev/graphauth",
+            "description": "GraphAuth repo (centralized authentication & access management: gk- API keys, wildcarded tuple-pattern grants, FastAPI PDP + MariaDB store, Authentik Phase 1) — owned by the cybersecurity-engineer agent (Guy). Use for its source, security model, schema, tests, and security tooling.",
+            "hidden": true
+        },
+        "graphsecurity": {
+            "path": "~/dev/graphsecurity",
+            "description": "GraphSecurity repo (platform security tooling & automation: secret detection, code scanning, vulnerability assessment, intrusion testing — greenfield, owned by the cybersecurity-engineer agent Guy).",
+            "hidden": true
         }
     },
     "provider": {
