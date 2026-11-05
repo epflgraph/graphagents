@@ -222,3 +222,14 @@ bun.lock
 logbook/
 /_trash/
 outline.env
+
+# Security hook test fixture — deliberate FAKE credentials, never commit.
+FAKE-CREDENTIALS-hook-test.txt
+.gitleaks.toml
+.githooks
+scripts/security/scan-leaks.sh
+scripts/security/scan-staged.sh
+opencode.sh.bak
+
+# OpenCode memory dumps — contain live secrets from process memory, never commit.
+*.heapsnapshot

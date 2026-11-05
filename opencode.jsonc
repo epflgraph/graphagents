@@ -87,20 +87,6 @@
                 ".py",
                 ".pyi"
             ]
-        },
-        "typescript": {
-            "command": [
-                "typescript-language-server",
-                "--stdio"
-            ],
-            "extensions": [
-                ".js",
-                ".jsx",
-                ".ts",
-                ".tsx",
-                ".mjs",
-                ".cjs"
-            ]
         }
     }
 }
