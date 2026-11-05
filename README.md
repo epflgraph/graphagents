@@ -85,7 +85,7 @@ The `chat` and `note-taking` skills bundle their own Python clients (`vocechat_c
 
 Configuration
 -------------
-`opencode.jsonc` defines the default agent, skill discovery, model provider, and tool permissions. Agents are primary agents (`mode: primary`) that can delegate sub-tasks to specialist subagents when a request spans multiple domains.
+`opencode.jsonc` defines the workspace delta over your global config: the default agent, skill discovery, references, and tool permissions. Machine-specific values — model provider, endpoints, credentials — live only in your global config (`~/.config/opencode/opencode.jsonc`), never in the repository. Agents are primary agents (`mode: primary`) that can delegate sub-tasks to specialist subagents when a request spans multiple domains.
 
 Per-agent credentials and endpoints live in an untracked `.env` file at the project root, named exactly as declared in `agents/identities.json`:
 
