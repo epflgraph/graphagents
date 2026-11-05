@@ -233,3 +233,6 @@ opencode.sh.bak
 
 # OpenCode memory dumps — contain live secrets from process memory, never commit.
 *.heapsnapshot
+
+# Local infrastructure values (real hosts/IPs) — never commit.
+/LOCAL-INFRA.md

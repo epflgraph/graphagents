@@ -52,7 +52,7 @@ Open `http://localhost:3000/` and complete the initial admin setup.
 Create or update `.env` in the project root. With multiple bots, store one key per bot; the client's `--as <bot>` flag picks the identity:
 
 ```
-VOCECHAT_SERVER=https://<your-vocechat-host>
+VOCECHAT_SERVER=https://<your-vocechat-host>   # real value in LOCAL-INFRA.md (untracked)
 VOCECHAT_buzz_API_KEY=<bot-api-key>
 VOCECHAT_HUBERT_API_KEY=<bot-api-key>
 VOCECHAT_VICTORIA_API_KEY=<bot-api-key>

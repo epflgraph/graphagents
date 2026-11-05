@@ -129,7 +129,7 @@ File: `prometheus.yml`
 - `global.evaluation_interval: 15s`
 - External labels: `environment: rcp-remote`, `role: monitor-client`
 
-Targets (all on `<monitoring-host>`):
+Targets (all on the monitoring host — real address in LOCAL-INFRA.md, untracked):
 
 | Job | Target | Purpose |
 | --- | --- | --- |

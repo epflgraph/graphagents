@@ -655,7 +655,7 @@ Name each variable exactly as that bot's entry in `agents/identities.json`
 (the registry holds the variable names, never the values):
 
 ```
-VOCECHAT_SERVER=https://<your-vocechat-host>
+VOCECHAT_SERVER=https://<your-vocechat-host>   # real value in LOCAL-INFRA.md (untracked)
 VOCECHAT_<CALL_SIGN>_API_KEY=<key>   # one per bot, named exactly as in agents/identities.json
 ```
 
