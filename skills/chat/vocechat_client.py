@@ -28,6 +28,9 @@ Environment variables (or .env file):
   VOCECHAT_<BOT>_API_KEY   Per-bot API key as named in agents/identities.json
   VOCECHAT_API_KEY         Fallback API key when no --as is given
   VOCECHAT_BOT_ID          Bot user ID (optional)
+  VOCECHAT_WEBHOOK_SECRET  16-byte bot webhook secret; when set, the webhook
+                           receiver rejects every payload that does not
+                           decrypt with it (payload authentication)
 """
 
 from __future__ import annotations
@@ -44,12 +47,22 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 try:  # Optional: trust certifi's CA bundle when Python's default paths are incomplete.
     import certifi
 except ImportError:  # pragma: no cover
     certifi = None
+
+try:  # Optional: AES webhook payload authentication needs the cryptography package.
+    from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+except ImportError:  # pragma: no cover
+    padding = None
+    Cipher = None
+    algorithms = None
+    modes = None
 
 
 def _ssl_context():
@@ -487,8 +500,14 @@ def format_event(event: dict[str, Any]) -> str:
 
 
 # Internal Function: Create a request handler class bound to a log file path.
-def _make_handler(log_file: str | None):
-    """Create a BaseHTTPRequestHandler subclass that logs VoceChat webhook events."""
+def _make_handler(log_file: str | None, webhook_secret: str | None, bind: str):
+    """Create a BaseHTTPRequestHandler subclass that authenticates and logs VoceChat webhook events."""
+
+    # Loopback names are always trusted; a custom bind address is added so
+    # VoceChat can post to the address the receiver actually listens on.
+    allowed_hosts = {"127.0.0.1", "localhost", "::1"}
+    if bind not in ("0.0.0.0", "::"):
+        allowed_hosts.add(bind)
 
     class WebhookHandler(BaseHTTPRequestHandler):
         # Public Method: Respond 200 to GET so VoceChat accepts the webhook URL.
@@ -497,12 +516,68 @@ def _make_handler(log_file: str | None):
             self.end_headers()
             self.wfile.write(b"ok")
 
-        # Public Method: Parse and log incoming webhook POST events.
+        # Internal Method: Return a reject reason when Host/Origin point away
+        # from the receiver, which is how browser CSRF and DNS-rebinding
+        # attacks reach loopback services.
+        def _header_reject_reason(self) -> str | None:
+            origin = self.headers.get("Origin")
+            if origin:
+                origin_host = (urlparse(origin).hostname or "").lower()
+                if origin_host and origin_host not in allowed_hosts:
+                    return f"foreign Origin '{origin_host}'"
+            host = (self.headers.get("Host") or "").strip()
+            if host:
+                # Strip the port, unbracketing IPv6 literals before comparing.
+                if host.startswith("["):
+                    hostname = host[1 : host.index("]")].lower()
+                elif host.count(":") > 1:
+                    hostname = host.lower()
+                else:
+                    hostname = host.rsplit(":", 1)[0].lower()
+                if hostname not in allowed_hosts:
+                    return f"foreign Host '{hostname}'"
+            return None
+
+        # Internal Method: Answer a rejected request and log the reason without
+        # echoing any request body content.
+        def _reject(self, status: int, reason: str) -> None:
+            peer = self.client_address[0] if self.client_address else "?"
+            print(f"[webhook] rejected {status} ({reason}) from {peer} path={self.path}", flush=True)
+            self.send_response(status)
+            self.end_headers()
+            self.wfile.write(b"unauthorized" if status == 401 else b"denied")
+
+        # Public Method: Authenticate and log incoming webhook POST events.
         def do_POST(self):
-            length = int(self.headers.get("Content-Length", 0))
+            # Header checks run first so forged requests never reach body parsing.
+            reason = self._header_reject_reason()
+            if reason:
+                self._reject(403, reason)
+                return
+
+            # Content-Length is the only accepted framing; chunked bodies would
+            # otherwise bypass the length-based read entirely.
+            if (self.headers.get("Transfer-Encoding") or "").strip():
+                self._reject(400, "chunked bodies are not accepted")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+            except ValueError:
+                self._reject(400, "invalid Content-Length header")
+                return
             raw_body = self.rfile.read(length) if length > 0 else b""
 
-            event = parse_webhook_event(raw_body)
+            # With the bot webhook secret configured, only bodies that decrypt
+            # with it are accepted; failures are refused without logging content.
+            if webhook_secret:
+                text = _decrypt_webhook_payload(raw_body, webhook_secret)
+                if text is None:
+                    self._reject(401, "payload failed webhook-secret authentication")
+                    return
+            else:
+                text = raw_body.decode("utf-8", errors="replace")
+
+            event = parse_webhook_event(text.encode("utf-8"))
             formatted = format_event(event)
 
             print(formatted, flush=True)
@@ -525,12 +600,82 @@ def _make_handler(log_file: str | None):
     return WebhookHandler
 
 
+# Helper Function: Decrypt an AES-encrypted webhook body and return plaintext
+# only when it authenticates against the bot webhook secret.
+def _decrypt_webhook_payload(body: bytes, secret: str) -> str | None:
+    """Decrypt a VoceChat webhook body with the 16-byte bot secret (AES, PKCS7).
+
+    VoceChat does not document the exact chaining mode, so the plausible
+    candidates are tried in turn; a body only authenticates when it decrypts
+    to valid UTF-8 JSON (or the plain 'newuser' signup signal). Anything else
+    returns None and must be rejected.
+    """
+    # Without the cryptography package, or with a non-block-aligned body,
+    # no candidate mode can decrypt.
+    if padding is None or Cipher is None or algorithms is None or modes is None:
+        return None
+    if not body or len(body) % 16 != 0:
+        return None
+
+    key = secret.encode("utf-8")
+    candidates: list[tuple[str, bytes, Any]] = [("aes-128-ecb", body, None)]
+    if len(body) > 16:
+        candidates.append(("aes-128-cbc-zero-iv", body, b"\x00" * 16))
+        candidates.append(("aes-128-cbc-prefixed-iv", body[16:], body[:16]))
+
+    # Accept the first candidate that decrypts to well-formed JSON or 'newuser'.
+    for _label, ciphertext, iv in candidates:
+        try:
+            mode = modes.ECB() if iv is None else modes.CBC(iv)
+            decryptor = Cipher(algorithms.AES(key), mode).decryptor()
+            padded = decryptor.update(ciphertext) + decryptor.finalize()
+            unpadder = padding.PKCS7(128).unpadder()
+            text = (unpadder.update(padded) + unpadder.finalize()).decode("utf-8")
+        except Exception:
+            continue
+        if text.strip() == "newuser":
+            return text
+        try:
+            json.loads(text)
+        except ValueError:
+            continue
+        return text
+    return None
+
+
 # Public Function: Start the webhook receiver HTTP server.
 def run_webhook_server(port: int = 8010, log_file: str | None = None, bind: str = "127.0.0.1") -> None:
-    """Start an HTTP server that receives VoceChat webhook events."""
-    handler = _make_handler(log_file)
+    """Start an HTTP server that receives VoceChat webhook events.
+
+    Payload authenticity: when VOCECHAT_WEBHOOK_SECRET holds the bot's
+    16-byte webhook secret, only AES-encrypted payloads that decrypt with it
+    are accepted. Host/Origin headers are validated to block browser CSRF
+    and DNS-rebinding requests aimed at the loopback receiver.
+    """
+    # A configured secret makes authentication mandatory for every webhook
+    # body; without it the receiver stays backward compatible but warns.
+    webhook_secret = (os.environ.get("VOCECHAT_WEBHOOK_SECRET") or "").strip() or None
+    if webhook_secret and Cipher is None:
+        print("[webhook] FATAL: VOCECHAT_WEBHOOK_SECRET is set but the 'cryptography' "
+              "package is missing — payloads could not be authenticated.", flush=True)
+        sys.exit(1)
+    if webhook_secret and len(webhook_secret) != 16:
+        print("[webhook] warning: VOCECHAT_WEBHOOK_SECRET is not 16 characters; "
+              "VoceChat bot secrets are 16 bytes.", flush=True)
+    if webhook_secret is None:
+        print("[webhook] WARNING: VOCECHAT_WEBHOOK_SECRET is not set — accepting "
+              "unauthenticated payloads. Set the webhook secret on the bot and "
+              "export VOCECHAT_WEBHOOK_SECRET.", flush=True)
+    if bind in ("0.0.0.0", "::"):
+        print("[webhook] WARNING: wildcard bind disables Host header validation — "
+              "only use when webhooks arrive from outside the host.", flush=True)
+
+    handler = _make_handler(log_file, webhook_secret, bind)
     server = HTTPServer((bind, port), handler)
     print(f"VoceChat webhook receiver listening on {bind}:{port}", flush=True)
+    print("[webhook] payload authentication: "
+          f"{'enforced (AES webhook secret)' if webhook_secret else 'DISABLED (no secret configured)'}",
+          flush=True)
     if log_file:
         print(f"Logging to: {log_file}", flush=True)
     print("Press Ctrl+C to stop.", flush=True)

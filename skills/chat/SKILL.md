@@ -528,6 +528,8 @@ When a new user signs up, the webhook receives `"newuser"` as the body.
 
 If a 16-byte secret is set on the bot, webhook payloads are AES-encrypted. Decrypt with AES + PKCS7 unpadding to get the original JSON.
 
+The webhook receiver enforces this: export the secret as `VOCECHAT_WEBHOOK_SECRET` before running the receiver, and it rejects (HTTP 401) any body that does not decrypt with it — forged or replayed payloads never reach the log, and `from_uid` in logged events becomes trustworthy. It also rejects (HTTP 403) requests whose `Host`/`Origin` headers do not point at the receiver itself, which blocks browser cross-origin and DNS-rebinding attacks against the loopback listener. Without the variable the receiver still accepts plaintext payloads and prints a prominent warning — set the secret on the bot *and* export it.
+
 ### Surveillance Setup
 
 1. **Create a surveillance bot** in Settings -> Bot & Webhook.

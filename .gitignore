@@ -235,5 +235,6 @@ opencode.sh.bak
 *.heapsnapshot
 
 # Local infrastructure values (real hosts/IPs) — never commit.
-/LOCAL-INFRA.md
+# Unanchored so copies in subdirectories (e.g. config/) are caught too.
+LOCAL-INFRA.md
 opencode.jsonc.bak
