@@ -1,0 +1,41 @@
+# GraphRegistry — GraphAI adapters reference (`graphregistry/adapters/gateways/graphai/`)
+
+GraphRegistry consumes GraphAI through hexagonal gateway adapters.
+
+- `agt_base.py`: `GraphAIBaseGateway`
+  - Loads config from `GlobalConfig().settings["graphai"]["client_config_file"]` or an explicit `graph_api_json` path.
+  - Lazy login via `_ensure_login_info()`; stores `login_info` dict with bearer token.
+  - `_request(...)`: low-level HTTP helper with exponential backoff, retry on `408/425/429/5xx`, automatic token refresh on `401`.
+  - `_call_async_endpoint(...)`: submit + poll until completion; returns `task_result` dict or task id string when `launch_only=True`.
+  - `get_async_task_result(...)`: poll an existing task id; supports one-shot (`wait_for_result=False`) or blocking mode.
+- `agt_conceptdet.py`: `GraphAIConceptDetectionGateway(GraphAIBaseGateway, ConceptDetectionGateway)`
+  - `wiki_search(search_term: str) -> list[dict]` calls `POST /text/wiki_search`.
+  - `detect_concepts(text: str | list[str]) -> ScoredConceptList` calls `POST /text/wikify`.
+  - Maps response items to `ScoredConcept(concept=Concept(id, name), score=...)` using `mixed_score` or `score`.
+- `agt_translation.py`: `GraphAITextTranslationGateway(GraphAIBaseGateway, TextTranslationGateway)`
+  - Implements `TextTranslationGateway` port (`translate_text`, `translate_multilingual`).
+  - Direct translation pairs: `(fr,en)`, `(en,fr)`, `(de,en)`, `(en,de)`, `(it,en)`, `(en,it)`; routes everything else through English.
+  - Same-language and empty-text short-circuits.
+  - Auto-splits text that GraphAI rejects as `text_too_large`.
+  - Cleans `None`/empty items from lists and reconstructs original list shape after translation.
+- `agt_embedding.py`: `GraphAIEmbeddingGateway(GraphAIBaseGateway)`
+  - `embed_text` dispatches to `embed_text_str` or `embed_text_list`.
+  - Splits long strings on `\n`, `.`, `;`, `,`, ` `, `$`; averages chunk embeddings weighted by length.
+  - Handles `text_too_large` by reducing `max_text_length`.
+  - Parses embedding payloads that are raw lists or JSON strings.
+- `agt_image.py`: `GraphAIImageGateway(GraphAIBaseGateway)`
+  - `extract_text_from_slide(slide_token, ...)` calls `/image/extract_text`.
+  - Prefers `ocr_google_1_token` / `ocr_google_1_results` method results.
+  - `calculate_fingerprint(slide_token, ...)` calls `/image/calculate_fingerprint`.
+- `agt_video.py`: `GraphAIVideoGateway(GraphAIBaseGateway)`
+  - `get_video(file_url)` -> `Video` domain object with token, stream metadata, fingerprint.
+  - `fingerprint(input)` -> video fingerprint string.
+  - `extract_audio(input)` -> `Voice` object.
+  - `extract_slides(input)` -> `SlideList`.
+  - `download_file(token, file_path)` -> downloads bytes via `POST /video/get_file`.
+  - Also exposes launch/get-result pairs for async orchestration.
+- `agt_voice.py`: `GraphAIVoiceGateway(GraphAIBaseGateway)`
+  - `transcribe_audio(input)` -> `Transcript` with `TranscriptSegment`s.
+  - `detect_language(audio_token)` -> language code string.
+  - `fingerprint(input)` -> audio fingerprint string.
+- `types.py`: type aliases `GraphAIGateway` and `GraphAIGatewayDict`.
