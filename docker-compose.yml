@@ -171,9 +171,33 @@ services:
     container_name: outline-mailpit
     restart: unless-stopped
 
+    environment:
+      # Web UI & API basic auth. The gateway publicly proxies this UI, and
+      # captured mail contains Outline magic links, so unauthenticated access
+      # is an account-takeover vector. Credentials are loaded from a FILE
+      # (compose secret), NOT the process environment: env vars are exposed
+      # in cleartext via `docker inspect` and /proc/<pid>/environ.
+      # Fail-closed: compose refuses to start when the secret file is
+      # missing. File lives in the gitignored .secrets/.
+      MP_UI_AUTH_FILE: /run/secrets/mailpit_ui_auth
+      # Anchor origin trust for the gateway-fronted hostname (Mailpit's Host
+      # allowlist, v1.31.1+). Real hostname comes from the gitignored .env —
+      # no infrastructure values in this tracked file. Loopback names stay
+      # always-allowed, so direct 127.0.0.1:8025 access keeps working.
+      MP_ALLOWED_HOSTS: ${MAILPIT_ALLOWED_HOSTS:?set MAILPIT_ALLOWED_HOSTS in .env}
+
+    secrets:
+      - mailpit_ui_auth
+
     ports:
-      # MailPit web UI: bound to loopback only — it renders captured emails,
-      # including Outline magic links (credentials). Reach it via an SSH tunnel:
-      #   ssh -L 8025:localhost:8025 <host>
+      # MailPit web UI: bound to loopback only — the public path is the
+      # gateway's mail vhost (TLS + authenticated above); direct host
+      # access works on 127.0.0.1:8025 without going through the gateway.
       # (its SMTP server listens on 1025, reachable inside the compose network)
       - "127.0.0.1:8025:8025"
+
+secrets:
+  # Mailpit web UI / API basic-auth credentials ("user:pass", one line).
+  # Created from .env by the owner; never committed (see .gitignore).
+  mailpit_ui_auth:
+    file: ./.secrets/mailpit_ui_auth
