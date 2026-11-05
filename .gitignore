@@ -236,3 +236,4 @@ opencode.sh.bak
 
 # Local infrastructure values (real hosts/IPs) — never commit.
 /LOCAL-INFRA.md
+opencode.jsonc.bak
