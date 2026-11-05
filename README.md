@@ -1,13 +1,12 @@
 <img src="assets/icon.png" alt="Project logo" height="64">
 
-[![License](https://img.shields.io/github/license/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/blob/master/LICENSE)
-[![Latest Release on Github](https://img.shields.io/github/v/release/epflgraph/graphagents?sort=semver)](https://github.com/epflgraph/graphagents/releases/latest)
+[![License](https://img.shields.io/github/license/epflgraph/graphagents?logo=apache&color=743EE6&logoColor=white&label=License)](https://github.com/epflgraph/graphagents/blob/master/LICENSE)
+[![Latest Release on Github](https://img.shields.io/github/v/release/epflgraph/graphagents?sort=semver&logo=git&color=743EE6&logoColor=white&label=Release)](https://github.com/epflgraph/graphagents/releases/latest)
+[![Contributors](https://img.shields.io/github/contributors/epflgraph/graphagents?sort=semver&logo=githubsponsors&color=743EE6&logoColor=white&label=Contributors)](https://github.com/epflgraph/graphagents/graphs/contributors)
 [![GitHub Stars](https://img.shields.io/github/stars/epflgraph/graphagents?style=social)](https://github.com/epflgraph/graphagents/stargazers)
-[![Contributors](https://img.shields.io/github/contributors/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/graphs/contributors)
-[![Last Commit](https://img.shields.io/github/last-commit/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/commits/master)
-[![Open Issues](https://img.shields.io/github/issues/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/epflgraph/graphagents)](https://github.com/epflgraph/graphagents/pulls)
-=
+[![Last Commit](https://img.shields.io/github/last-commit/epflgraph/graphagents?logo=github&color=743EE6&logoColor=white&label=Last%20Commit)](https://github.com/epflgraph/graphagents/commits/master)
+[![Open Issues](https://img.shields.io/github/issues/epflgraph/graphagents?logo=github&color=743EE6&logoColor=white&label=Issues)](https://github.com/epflgraph/graphagents/issues)
+[![Open PRs](https://img.shields.io/github/issues-pr/epflgraph/graphagents?logo=github&color=743EE6&logoColor=white&label=Pull%20Requests)](https://github.com/epflgraph/graphagents/pulls)
 
 🏠 [Project Home](https://github.com/epflgraph/graphproject) > Agents
 
