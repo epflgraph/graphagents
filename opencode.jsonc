@@ -28,33 +28,6 @@
             "hidden": true
         }
     },
-    "provider": {
-        "epfl": {
-            "npm": "@ai-sdk/openai-compatible",
-            "name": "EPFL Inference",
-            "env": [
-                "EPFL_RCP_API_KEY"
-            ],
-            "options": {
-                "baseURL": "https://<your-inference-endpoint>/v1"
-            },
-            "models": {
-                "openai/gpt-oss-120b": {
-                    "name": "GPT OSS 120b"
-                },
-                "moonshotai/Kimi-K2.7-Code": {
-                    "name": "Kimi K2.7 Code"
-                },
-                "zai-org/GLM-5.3": {
-                    "name": "Zai GLM 5.3"
-                },
-                "zai-org/GLM-5.3-Flash": {
-                    "name": "Zai GLM 5.3 Flash"
-                }
-            }
-        }
-    },
-    "model": "zai-org/GLM-5.3-Flash",
     "permission": {
         "bash": {
             "pwd": "allow",
