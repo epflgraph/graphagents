@@ -88,7 +88,7 @@ GraphDashboard provides dashboards, metrics, logs, and secrets management for th
 
 ## Public endpoints
 
-All HTTPS endpoints are served from `graphdash.<your-domain>`:
+All HTTPS endpoints are served from the dashboard host — real hostname in `LOCAL-INFRA.md` (untracked):
 
 | Port | Service | Upstream |
 | --- | --- | --- |
@@ -168,7 +168,7 @@ Important Loki 3.x removals:
 File: `nginx.graphdash-https.conf`
 
 - Listens on `8444`, `9444`, `9445`, `9446` with SSL + HTTP/2.
-- Uses certificates from `/etc/letsencrypt/live/<your-domain>/`.
+- Uses certificates from the host's Let's Encrypt live directory (cert name in LOCAL-INFRA.md).
 - Also listens on port `80` for the Loki `/loki/` path.
 - Sets standard forwarded headers (`X-Forwarded-Proto`, `X-Forwarded-For`, `X-Real-IP`).
 - Infisical location includes websocket upgrade headers.

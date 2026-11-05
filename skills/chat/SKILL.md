@@ -572,6 +572,8 @@ python skills/chat/vocechat_client.py --as senior-hexa-developer user-info --uid
 python skills/chat/vocechat_client.py --as senior-hexa-developer group-info --gid 1
 
 # Start webhook receiver for surveillance (optional)
+# Binds to 127.0.0.1 by default — override only if webhooks arrive from
+# outside the host (never use 0.0.0.0):
 python skills/chat/vocechat_client.py webhook --port 8010
 
 # Start webhook receiver with file logging

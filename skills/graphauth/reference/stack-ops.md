@@ -5,7 +5,7 @@
 - Phase 0: `graphauth-app` (host :3011 → container 28801, sibling of GraphRegistry's internal 28800) + `graphauth-mariadb` (127.0.0.1:13306, loopback-only).
 - Phase 1 profile `idp`: Authentik (HTTPS :9447, loopback-only, first-time setup via SSH tunnel).
 - Healthcheck: dependency-free python-stdlib probe; `mem_limit` 512M; runtime config mounted read-only from `./config` (never baked into the image).
-- Public TLS is planned at the edge reverse proxy (`auth.<your-domain>`); everything is loopback-protected until then.
+- Public TLS is planned at the edge reverse proxy (`<your-auth-host>` — real value in LOCAL-INFRA.md); everything is loopback-protected until then.
 
 ## Operations
 

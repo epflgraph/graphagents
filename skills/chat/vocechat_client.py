@@ -519,18 +519,18 @@ def _make_handler(log_file: str | None):
             self.end_headers()
             self.wfile.write(b"ok")
 
-        def log_message(self, fmt, *args):
+        def log_message(self, format, *args):
             pass
 
     return WebhookHandler
 
 
 # Public Function: Start the webhook receiver HTTP server.
-def run_webhook_server(port: int = 8010, log_file: str | None = None) -> None:
+def run_webhook_server(port: int = 8010, log_file: str | None = None, bind: str = "127.0.0.1") -> None:
     """Start an HTTP server that receives VoceChat webhook events."""
     handler = _make_handler(log_file)
-    server = HTTPServer(("0.0.0.0", port), handler)
-    print(f"VoceChat webhook receiver listening on port {port}", flush=True)
+    server = HTTPServer((bind, port), handler)
+    print(f"VoceChat webhook receiver listening on {bind}:{port}", flush=True)
     if log_file:
         print(f"Logging to: {log_file}", flush=True)
     print("Press Ctrl+C to stop.", flush=True)
@@ -766,13 +766,16 @@ def main() -> None:
     # webhook
     p_wh = sub.add_parser("webhook", help="Start webhook receiver for surveillance")
     p_wh.add_argument("--port", type=int, default=8010)
+    p_wh.add_argument("--bind", default="127.0.0.1",
+                      help="Bind address (default: 127.0.0.1). Only override when "
+                           "webhooks arrive from outside the host — never use 0.0.0.0.")
     p_wh.add_argument("--log-file", default=None)
 
     args = parser.parse_args()
 
     # Webhook receiver does not need an API key.
     if args.command == "webhook":
-        run_webhook_server(port=args.port, log_file=args.log_file)
+        run_webhook_server(port=args.port, log_file=args.log_file, bind=args.bind)
         return
 
     # All other commands need a client. Resolve the bot identity first when
