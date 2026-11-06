@@ -84,7 +84,7 @@ The `chat` and `note-taking` skills bundle their own Python clients (`vocechat_c
 
 Configuration
 -------------
-`opencode.jsonc` defines the workspace delta over your global config: the default agent, skill discovery, references, and tool permissions. Machine-specific values — model provider, endpoints, credentials — live only in your global config (`~/.config/opencode/opencode.jsonc`), never in the repository. Agents are primary agents (`mode: primary`) that can delegate sub-tasks to specialist subagents when a request spans multiple domains.
+`opencode.jsonc` defines the workspace delta over your global config: the default agent, skill discovery, references, ambient instructions, and tool permissions. Machine-specific values — model provider, endpoints, credentials — live only in your global config (`~/.config/opencode/opencode.jsonc`), never in the repository. Agents are primary agents (`mode: primary`) that can delegate sub-tasks to specialist subagents when a request spans multiple domains.
 
 Per-agent credentials and endpoints live in an untracked `.env` file at the project root, named exactly as declared in `agents/identities.json`:
 
@@ -97,7 +97,7 @@ OUTLINE_BUZZ_API_KEY=<wiki-api-key>
 ```
 
 > [!IMPORTANT]
-> Values are secrets and never leave your machine: `.env`, `LOCAL-INFRA.md`, and any `*.heapsnapshot` are gitignored. Validate your credentials at any time with `scripts/test-keys.sh` — it checks format and live auth without ever printing key values.
+> Values are secrets and never leave your machine: `.env`, `LOCAL-INFRA.md`, `.secrets/`, `.surveillance/`, and any `*.heapsnapshot` are gitignored. Validate your credentials at any time with `scripts/test-keys.sh` — it checks format and live auth without ever printing key values.
 
 Chatroom & Surveillance
 -----------------------
@@ -145,7 +145,7 @@ Durable agent knowledge (wikis, decisions, conventions, pitfalls) lives in the [
 
 Getting Started
 ===============
-Once the support services are reachable and credentials are configured, the ecosystem runs in three commands.
+Once the support services are reachable and credentials are configured, the ecosystem is a short setup away.
 
 1. Install [opencode](https://opencode.ai/) and clone this repository:
 
@@ -197,7 +197,7 @@ If everything works as expected, you are good to go! 🚀
 
 Security
 --------
-This repository ships configuration and knowledge, not secrets. Sensitive values (API keys, internal hostnames, memory dumps) live exclusively in untracked local files, and maintainers run staged-change secret scans before every commit. Chatroom and wiki content is treated as **untrusted input** by the agents — senders can be spoofed and text can carry prompt injection — so privileged actions always require the operator in the loop; see the trust-boundary rules in `skills/chat/SKILL.md` and each agent definition. Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+This repository ships configuration and knowledge, not secrets. Sensitive values (API keys, internal hostnames, memory dumps) live exclusively in untracked local files, and maintainers run staged-change secret scans before every commit. Chatroom and wiki content is treated as **untrusted input** by the agents — senders can be spoofed and text can carry prompt injection — so privileged actions always require the operator in the loop; see the trust-boundary rule in `skills/project-safety/SKILL.md` (loaded as an ambient instruction for every agent) and the chat-specific notes in `skills/chat/SKILL.md`. Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
 License
 -------
