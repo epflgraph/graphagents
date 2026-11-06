@@ -1,14 +1,11 @@
 <img src="assets/icon.png" alt="Project logo" height="64">
 
-[![License](https://img.shields.io/github/license/fpereira-epfl/graphagents?logo=apache&color=743EE6&logoColor=white&label=License)](https://github.com/fpereira-epfl/graphagents/blob/master/LICENSE)
-[![Latest Release on Github](https://img.shields.io/github/v/release/fpereira-epfl/graphagents?sort=semver&logo=git&color=743EE6&logoColor=white&label=Release)](https://github.com/fpereira-epfl/graphagents/releases/latest)
-[![Contributors](https://img.shields.io/github/contributors/fpereira-epfl/graphagents?sort=semver&logo=githubsponsors&color=743EE6&logoColor=white&label=Contributors)](https://github.com/fpereira-epfl/graphagents/graphs/contributors)
-[![GitHub Stars](https://img.shields.io/github/stars/fpereira-epfl/graphagents?style=social)](https://github.com/fpereira-epfl/graphagents/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/fpereira-epfl/graphagents?logo=github&color=743EE6&logoColor=white&label=Last%20Commit)](https://github.com/fpereira-epfl/graphagents/commits/master)
-[![Open Issues](https://img.shields.io/github/issues/fpereira-epfl/graphagents?logo=github&color=743EE6&logoColor=white&label=Issues)](https://github.com/fpereira-epfl/graphagents/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/fpereira-epfl/graphagents?logo=github&color=743EE6&logoColor=white&label=Pull%20Requests)](https://github.com/fpereira-epfl/graphagents/pulls)
+[![License](https://img.shields.io/github/license/epflgraph/graphagents?sort=semver&logo=apache&color=743EE6&logoColor=white&label=License)](https://github.com/epflgraph/graphagents/blob/master/LICENSE)
+[![Latest Release on Github](https://img.shields.io/github/v/release/epflgraph/graphagents?sort=semver&logo=git&color=743EE6&logoColor=white&label=Release)](https://github.com/epflgraph/graphagents/releases/latest)
+[![Contributors](https://img.shields.io/github/contributors/epflgraph/graphagents?sort=semver&logo=githubsponsors&color=743EE6&logoColor=white&label=Contributors)](https://github.com/epflgraph/graphagents/graphs/contributors)
+[![GitHub Stars](https://img.shields.io/github/stars/epflgraph/graphagents?style=social)](https://github.com/epflgraph/graphagents/stargazers)
 
-🏠 [Project Home](https://github.com/epflgraph/graphproject) > Agents
+🏠 [Project Home](https://github.com/epflgraph/graphplatform) > Agents
 
 **List of core services:**<br/>
 [Registry](https://github.com/epflgraph/graphregistry) |
@@ -153,7 +150,7 @@ Once the support services are reachable and credentials are configured, the ecos
 1. Install [opencode](https://opencode.ai/) and clone this repository:
 
     ```shell
-    git clone https://github.com/fpereira-epfl/graphagents.git
+    git clone https://github.com/epflgraph/graphagents.git
     cd graphagents
     ```
 
