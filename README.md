@@ -1,9 +1,9 @@
 <img src="assets/icon.png" alt="Project logo" height="64">
 
-[![License](https://img.shields.io/github/license/epflgraph/graphagents?sort=semver&logo=apache&color=743EE6&logoColor=white&label=License)](https://github.com/epflgraph/graphagents/blob/master/LICENSE)
-[![Latest Release on Github](https://img.shields.io/github/v/release/epflgraph/graphagents?sort=semver&logo=git&color=743EE6&logoColor=white&label=Release)](https://github.com/epflgraph/graphagents/releases/latest)
-[![Contributors](https://img.shields.io/github/contributors/epflgraph/graphagents?sort=semver&logo=githubsponsors&color=743EE6&logoColor=white&label=Contributors)](https://github.com/epflgraph/graphagents/graphs/contributors)
-[![GitHub Stars](https://img.shields.io/github/stars/epflgraph/graphagents?style=social)](https://github.com/epflgraph/graphagents/stargazers)
+[![License](https://img.shields.io/github/license/epflgraph/graphagents?sort=semver&logo=apache&color=743EE6&logoColor=white&label=License)](https://github.com/epflgraph/graphagents/blob/master/LICENSE&v=1)
+[![Latest Release on Github](https://img.shields.io/github/v/release/epflgraph/graphagents?sort=semver&logo=git&color=743EE6&logoColor=white&label=Release)](https://github.com/epflgraph/graphagents/releases/latest&v=1)
+[![Contributors](https://img.shields.io/github/contributors/epflgraph/graphagents?sort=semver&logo=githubsponsors&color=743EE6&logoColor=white&label=Contributors)](https://github.com/epflgraph/graphagents/graphs/contributors&v=1)
+[![GitHub Stars](https://img.shields.io/github/stars/epflgraph/graphagents?style=social)](https://github.com/epflgraph/graphagents/stargazers&v=1)
 
 🏠 [Project Home](https://github.com/epflgraph/graphplatform) > Agents
 
