@@ -20,9 +20,9 @@ permission:
     grep: allow
     rg: allow
     python: allow
-    node: allow
-    npm: allow
-    npx: allow
+    npm run *: allow
+    npm test: allow
+    node scripts/*: allow
 ---
 
 # Full-Stack Developer (GraphSearch UI)

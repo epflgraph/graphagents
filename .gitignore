@@ -238,4 +238,5 @@ opencode.sh.bak
 # Unanchored so copies in subdirectories (e.g. config/) are caught too.
 LOCAL-INFRA.md
 .secrets/
+.surveillance/
 opencode.jsonc.bak

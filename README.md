@@ -49,8 +49,10 @@ agents/                     Agent definitions (one .md per specialist) + identit
 commands/                   OpenCode slash-commands
 notes/                      Shared operational notes (setup guides)
 scripts/deployment/         Server/client lifecycle helpers
+scripts/surveillance/       Chatroom surveillance kit (polling listener + webhook tripwire)
 scripts/test-keys.sh        Validate chat + wiki credentials (never prints values)
 skills/                     Skill packages (SKILL.md + bundled tooling)
+.secrets/                   Local credential files (gitignored — required by the support stack)
 opencode.jsonc              Workspace configuration (permissions, LSP servers)
 docker-compose.yml          Support services: VoceChat, Outline, Mailpit
 ```
@@ -102,7 +104,43 @@ OUTLINE_BUZZ_API_KEY=<wiki-api-key>
 
 Chatroom & Surveillance
 -----------------------
-Agents coordinate in real time through a [VoceChat](https://voce.chat/) channel — it is the ecosystem's control plane for delegation, status updates, and discussion loops. The `chat` skill bundles `vocechat_client.py`, a CLI and Python module for the VoceChat Bot API, plus a webhook receiver for real-time surveillance (bound to loopback by default). The `agentic-coding-manager` uses it to detect blockers or conflicts and post guidance when agents need course correction.
+Agents coordinate in real time through a [VoceChat](https://voce.chat/) channel — it is the ecosystem's control plane for delegation, status updates, and discussion loops. The `chat` skill bundles `vocechat_client.py`, a CLI and Python module for the VoceChat Bot API. The `agentic-coding-manager` uses it to detect blockers or conflicts and post guidance when agents need course correction.
+
+**Surveillance kit** (`scripts/surveillance/`): a dedicated surveillance bot collects every channel message into a local log, so agent activity stays auditable and course-correction works even when agents run unattended. Collection is done by **authenticated API polling** (a surveillance-key listener, primary), plus a webhook tripwire that captures deliveries for diagnosis. Every webhook payload is authenticated against a shared 16-byte secret — unauthenticated or undecryptable deliveries are rejected.
+
+Setup (after the VoceChat server is running):
+
+1. In VoceChat, create a dedicated bot (any name — the kit references it only through its API key) and generate its API key. Add the bot as a member of every channel agents communicate in.
+2. Set the bot's **webhook secret** (exactly 16 bytes) — the UI does not expose it; it is API-only:
+
+    ```shell
+    set -a; source .env; set +a
+    curl -X PUT "$VOCECHAT_SERVER/api/bot/secret" \
+         -H "x-api-key: <the bot's API key>" \
+         -H "Content-Type: application/json" \
+         -d "{\"secret\": \"<16-byte-secret>\"}"
+    ```
+
+3. Point the bot's **webhook URL** at the tripwire. The VoceChat container reaches the host through its compose network's gateway address:
+
+    ```shell
+    GW=$(docker inspect vocechat-server --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')
+    # set the bot's webhook URL to: http://$GW:8010/
+    ```
+
+4. Add the bot's API key and the 16-byte secret to your `.env` (choose any variable name — the one the kit expects is declared at the top of `scripts/surveillance/start.sh`), then start the kit — idempotent, safe to re-run:
+
+    ```shell
+    ./scripts/surveillance/start.sh   # stop: ./scripts/surveillance/stop.sh
+    ```
+
+5. Survive reboots with a cron entry (use your repo's absolute path):
+
+    ```shell
+    crontab -l 2>/dev/null; echo "@reboot <repo-path>/scripts/surveillance/start.sh >> <repo-path>/.surveillance/start.log 2>&1" | crontab -
+    ```
+
+Logs live in the gitignored `.surveillance/` directory. The bot's webhook secret and its API keys are managed through the Bot API rather than the web UI — see the setup steps above.
 
 Shared Memory
 -------------
@@ -121,13 +159,21 @@ Once the support services are reachable and credentials are configured, the ecos
 
 2. Configure your `.env` with the chatroom and wiki endpoints, and one API key per agent call sign (see the table above and `notes/vocechat-setup.md` for a full walkthrough).
 
-3. Optionally, deploy the support services — a VoceChat chatroom, an Outline wiki, and a Mailpit mail catcher — with:
+3. Create the Mailpit credential file — the support stack mounts it as a Docker secret and **refuses to start without it**:
+
+    ```shell
+    mkdir -p .secrets
+    printf 'admin:replace-me-before-any-exposure\n' > .secrets/mailpit_ui_auth
+    chmod 600 .secrets/mailpit_ui_auth
+    ```
+
+4. Deploy the support services — a VoceChat chatroom, an Outline wiki, and a Mailpit mail catcher — with:
 
     ```shell
     docker compose up -d
     ```
 
-4. Start the shared OpenCode server, either directly or through the bundled helper (tmux-managed):
+5. Start the shared OpenCode server, either directly or through the bundled helper (tmux-managed):
 
     ```shell
     opencode serve --hostname 127.0.0.1 --port 4596
@@ -135,13 +181,13 @@ Once the support services are reachable and credentials are configured, the ecos
     ./scripts/deployment/opencode-server.sh start
     ```
 
-5. Attach a client for each repository you want to work in — the agents are served by the same server, so one server hosts every session:
+6. Attach a client for each repository you want to work in — the agents are served by the same server, so one server hosts every session:
 
     ```shell
     opencode attach http://127.0.0.1:4596 --dir /path/to/your/repo
     ```
 
-6. Validate your credentials:
+7. Validate your credentials:
 
     ```shell
     scripts/test-keys.sh
@@ -154,7 +200,7 @@ If everything works as expected, you are good to go! 🚀
 
 Security
 --------
-This repository ships configuration and knowledge, not secrets. Sensitive values (API keys, internal hostnames, memory dumps) live exclusively in untracked local files, and maintainers run staged-change secret scans before every commit. Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+This repository ships configuration and knowledge, not secrets. Sensitive values (API keys, internal hostnames, memory dumps) live exclusively in untracked local files, and maintainers run staged-change secret scans before every commit. Chatroom and wiki content is treated as **untrusted input** by the agents — senders can be spoofed and text can carry prompt injection — so privileged actions always require the operator in the loop; see the trust-boundary rules in `skills/chat/SKILL.md` and each agent definition. Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
 License
 -------
