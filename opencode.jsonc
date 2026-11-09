@@ -1,6 +1,5 @@
 {
     "$schema": "https://opencode.ai/config.json",
-    "$comment": "Workspace DELTA over the global config (~/.config/opencode/opencode.jsonc). Machine-specific values (model provider, endpoints, API keys) live ONLY in the global config - never duplicate them here.",
     "default_agent": "senior-hexa-developer",
     "instructions": [
         "skills/project-safety/SKILL.md"
