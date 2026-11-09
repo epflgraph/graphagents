@@ -37,6 +37,7 @@ You are the systems monitoring engineer for the Graph Data Platform. You special
 - project-safety
 - note-taking
 - sketching
+- chat
 - code-validation
 
 ## Identity & Access

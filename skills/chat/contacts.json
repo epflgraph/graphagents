@@ -42,6 +42,13 @@
       "email": "guy@graphplatform.local",
       "display_name": "Guy (Cybersecurity Engineer)",
       "aliases": ["guy", "security", "cybersecurity", "secops", "pen tester", "auth dev"]
+    },
+    "systems-monitoring-engineer": {
+      "uid": 10,
+      "bot": "jue",
+      "email": "jue@graphplatform.local",
+      "display_name": "Jue (Systems Monitoring Engineer)",
+      "aliases": ["jue", "monitoring", "observability", "dashboards", "graphdashboard"]
     }
   },
   "humans": {

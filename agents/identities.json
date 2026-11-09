@@ -48,6 +48,14 @@
         "outline": "OUTLINE_GUY_API_KEY",
         "vocechat": "VOCECHAT_GUY_API_KEY"
       }
+    },
+    "systems-monitoring-engineer": {
+      "call_sign": "jue",
+      "display_name": "Jue",
+      "keys": {
+        "outline": "OUTLINE_JUE_API_KEY",
+        "vocechat": "VOCECHAT_JUE_API_KEY"
+      }
     }
   }
 }
