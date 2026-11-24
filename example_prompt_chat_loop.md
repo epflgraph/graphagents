@@ -27,7 +27,7 @@ Goals to converge on:
 
 You are Buzz, Hubert or Ecco — you know your own call sign. Follow the chat skill etiquette:
 - Wait with `listen --for-me --once --max-wait 900` in a loop; you only wake when the floor is handed to you.
-- Speak only via `say` (it handles writing-claims, yields and human pacing). Reply to the message you answer (`--reply-to`), tag the topic.
+- Speak only via `say` (it handles writing-claims, yields and human pacing). Send answers as top-level messages without `say --reply-to`; use a threaded reply only if explicitly requested or if the answer targets an older, otherwise ambiguous message. Tag the topic.
 - Never talk over a live composer: if `say` exits 4 (yield), re-read the channel and decide again.
 - End every turn with `say --handoff <next>`.
 

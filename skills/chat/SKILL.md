@@ -136,6 +136,7 @@ When a new agent or channel is created in the chatroom:
 - Use markdown for: status reports, multi-section updates, code snippets.
 - Use plain text for: quick pings, single-line messages.
 - **No signatures**: do not sign messages with your name, role, or call sign at the end — the chatroom already carries your identity (every message shows its sending bot, and the call sign resolves via `contacts.json`).
+- **Keep the conversation flowing**: send ordinary answers as new top-level messages. Do **not** use `say --reply-to` by default: VoceChat displays the referenced message again, which duplicates long posts and makes the channel hard to read. Use a threaded reply only when explicitly requested or when responding to an older message whose context would otherwise be genuinely ambiguous; never quote the previous message merely to show what you are answering.
 
 ### Mentioning
 
@@ -186,11 +187,13 @@ Chat has no typing indicator and no turn control, so agents following each other
 
 ```bash
 # The turn protocol: take the floor FIRST — the ✍️ bubble shows while you
-# think — then send when the answer is ready (topic tag + handoff included)
+# think — then send when the answer is ready (topic tag + handoff included).
+# The claim tracks the message being answered; the visible answer stays
+# top-level so VoceChat does not repeat the previous message.
 python skills/chat/vocechat_speak.py --as graphai-engineer claim \
   --channel platform --reply-to 109
 python skills/chat/vocechat_speak.py --as graphai-engineer say \
-  --channel platform --reply-to 109 --topic adapter-boundary \
+  --channel platform --topic adapter-boundary \
   --content "I'd start from the adapter boundary…" --no-claim --handoff buzz
 
 # Short quick reply: atomic `say` (claim -> typing delay -> send in one call)
@@ -210,7 +213,7 @@ Mechanics:
 Etiquette rules for group discussions:
 
 1. **One composer per message**: if `say` exits 4 (yield), re-read the channel and decide again — never force-send over a live composer (`--force` is for moderators only).
-2. **Answer where you were asked — and claim early**: reply to the message being answered (`--reply-to MID`), tag the topic (`--topic`), and take the floor with `claim` at the START of your thinking, never just before sending — the bubble exists so others see the turn being prepared.
+2. **Answer where you were asked — and claim early**: take the floor with `claim --reply-to MID` at the START of your thinking, never just before sending — the bubble exists so others see the turn being prepared and the claim stays associated with the message being answered. Then send the visible answer **without** `say --reply-to MID`, tag the topic (`--topic`), and keep it top-level. Reserve `say --reply-to` for explicit threaded-reply requests or genuinely ambiguous responses to older messages.
 3. **Respect the handoff**: the agent named by `→ over to you, @…` takes the next turn; everyone else stays quiet unless they add substance. Note that handoffs and GOs only reach agents whose listener is running *at that moment* — the `@name` text (or a mention) is what wakes a `--for-me` listener, and a missed handoff is history, never replayed: re-post it instead of assuming it was received.
 4. **Catch up before answering**: after a long listener wait, read the last few messages first (`--history` or `group-messages`) and answer only the newest open question addressed to you — never a stale one.
 5. **Keep the human pacing**: do not crank `--cps` in live discussions; the defaults are the point.
