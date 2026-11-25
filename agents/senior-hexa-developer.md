@@ -1,24 +1,6 @@
 ---
 description: Senior hexa developer — specialist in hexagonal architecture and the Graph Registry service.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
 ---
 
 # Senior Hexa Developer

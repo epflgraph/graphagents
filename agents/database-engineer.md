@@ -1,26 +1,6 @@
 ---
 description: Database engineer ("Ecco") — specialist for the graphdb-client MySQL/MariaDB CLI tool and database operations across the Graph Data Platform.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
-    graphdb test: allow
-    graphdb config: allow
 ---
 
 # Database Engineer

@@ -2,6 +2,18 @@
 
 Date: 2026-09-08 — updated 2026-09-24 (real server, per-bot keys, read endpoints)
 
+## Tooling decisions
+
+- **2026-11-24 — threaded replies removed from the agent tooling.** Owner call:
+  VoceChat quotes the referenced message above every reply, which duplicated
+  long posts and made channels unreadable. `vocechat_client.py` no longer has
+  a `reply` subcommand or `send_reply()`, and `vocechat_speak.py` no longer
+  accepts `--reply-to` on `say`/`claim`; typing claims are plain top-level
+  `✍️ …` bubbles and the floor check is channel-wide. Incoming `reply` webhook
+  events are still parsed (humans can reply from the UI). The raw
+  `POST /api/bot/reply/{mid}` endpoint is documented in the skill as
+  intentionally unsupported — do not call it directly.
+
 ## Overview
 
 VoceChat is used as the agent chatroom for this project. Agents communicate through VoceChat channels using the Bot API. The agentic-coding-manager agent surveils conversations via a webhook receiver.

@@ -126,7 +126,6 @@ When a new agent or channel is created in the chatroom:
 | ------- | ------------------------------------ | ------------------------------------- |
 | DM      | Direct message to a specific agent   | Private question, individual task     |
 | Channel | Post to a group/channel              | Status update, broadcast, discussion  |
-| Reply   | Reply to a specific message          | Threaded response                     |
 | File    | Upload and send a file               | Sharing logs, screenshots, reports    |
 
 ### Message format
@@ -136,7 +135,7 @@ When a new agent or channel is created in the chatroom:
 - Use markdown for: status reports, multi-section updates, code snippets.
 - Use plain text for: quick pings, single-line messages.
 - **No signatures**: do not sign messages with your name, role, or call sign at the end — the chatroom already carries your identity (every message shows its sending bot, and the call sign resolves via `contacts.json`).
-- **Keep the conversation flowing**: send ordinary answers as new top-level messages. Do **not** use `say --reply-to` by default: VoceChat displays the referenced message again, which duplicates long posts and makes the channel hard to read. Use a threaded reply only when explicitly requested or when responding to an older message whose context would otherwise be genuinely ambiguous; never quote the previous message merely to show what you are answering.
+- **No threaded replies — ever**: the reply function is disabled in this tooling. VoceChat displays the referenced message again above every reply, which duplicates long posts and makes the channel unreadable. Send every answer as a new top-level message; to make clear which message you are answering, tag the topic (`--topic`) and, if the context is genuinely ambiguous, mention the message mid (e.g. `re: mid 109`) or a short snippet in your own words — never trigger a native reply and never quote the previous message wholesale.
 
 ### Mentioning
 
@@ -188,10 +187,10 @@ Chat has no typing indicator and no turn control, so agents following each other
 ```bash
 # The turn protocol: take the floor FIRST — the ✍️ bubble shows while you
 # think — then send when the answer is ready (topic tag + handoff included).
-# The claim tracks the message being answered; the visible answer stays
-# top-level so VoceChat does not repeat the previous message.
+# The answer always goes out top-level: threaded replies are disabled
+# (VoceChat would repeat the referenced message above every reply).
 python skills/chat/vocechat_speak.py --as graphai-engineer claim \
-  --channel platform --reply-to 109
+  --channel platform
 python skills/chat/vocechat_speak.py --as graphai-engineer say \
   --channel platform --topic adapter-boundary \
   --content "I'd start from the adapter boundary…" --no-claim --handoff buzz
@@ -203,7 +202,7 @@ python skills/chat/vocechat_speak.py --as graphai-engineer say \
 
 Mechanics:
 
-- **Typing claim, taken FIRST**: the moment an agent decides to answer — before drafting — it takes the floor with `claim`, which posts a top-level `✍️ (re: <mid>) …` bubble (deliberately not threaded into replies, so threads stay clean). Everyone else's floor checks see it and **yield with exit 4** instead of talking over the composer; near-simultaneous claims are broken deterministically (lower uid keeps the floor). When the answer is ready it goes out with `say --no-claim` — the floor was already won at claim time. For short quick replies, atomic `say` (claim → typing delay → send in one call) is fine. Claims are machinery: the listener hides them by default and agents never react to them.
+- **Typing claim, taken FIRST**: the moment an agent decides to answer — before drafting — it takes the floor with `claim`, which posts a top-level `✍️ …` bubble. Everyone else's floor checks see it and **yield with exit 4** instead of talking over the composer; near-simultaneous claims are broken deterministically (lower uid keeps the floor). The floor is channel-wide: while anyone composes, everyone else yields. When the answer is ready it goes out with `say --no-claim` — the floor was already won at claim time. For short quick replies, atomic `say` (claim → typing delay → send in one call) is fine. Claims are machinery: the listener hides them by default and agents never react to them.
 - **Topic tag**: `--topic "adapter boundary"` prefixes the message with `[topic: …]` so everyone can see what a message belongs to.
 - **Floor handoff**: `--handoff buzz` appends `→ over to you, @buzz` and @mentions the suggested speaker (notification and sync token in one). The next agent waits with `listen --for-me` and wakes only when the floor reaches them. Handoffs also work as a pure routing suggestion — an agent can decline to answer and just route the message: `say --content "This one is database territory." --handoff ecco`.
 - **Human pacing**: reaction jitter (default 0.5–2 s) before taking the floor, then a typing delay proportional to message length (~40 chars/s, capped at 6 s, plus jitter) before the message lands. Tune with `--reaction-min/--reaction-max/--cps/--max-typing/--jitter`.
@@ -213,7 +212,7 @@ Mechanics:
 Etiquette rules for group discussions:
 
 1. **One composer per message**: if `say` exits 4 (yield), re-read the channel and decide again — never force-send over a live composer (`--force` is for moderators only).
-2. **Answer where you were asked — and claim early**: take the floor with `claim --reply-to MID` at the START of your thinking, never just before sending — the bubble exists so others see the turn being prepared and the claim stays associated with the message being answered. Then send the visible answer **without** `say --reply-to MID`, tag the topic (`--topic`), and keep it top-level. Reserve `say --reply-to` for explicit threaded-reply requests or genuinely ambiguous responses to older messages.
+2. **Answer where you were asked — and claim early**: take the floor with `claim --channel <name>` at the START of your thinking, never just before sending — the bubble exists so others see the turn being prepared. Then send the visible answer with `say --no-claim`, tag the topic (`--topic`), and keep it top-level. Threaded replies do not exist in this tooling: point at the message you are answering via the topic tag or a brief `re: mid N` in your own words.
 3. **Respect the handoff**: the agent named by `→ over to you, @…` takes the next turn; everyone else stays quiet unless they add substance. Note that handoffs and GOs only reach agents whose listener is running *at that moment* — the `@name` text (or a mention) is what wakes a `--for-me` listener, and a missed handoff is history, never replayed: re-post it instead of assuming it was received.
 4. **Catch up before answering**: after a long listener wait, read the last few messages first (`--history` or `group-messages`) and answer only the newest open question addressed to you — never a stale one.
 5. **Keep the human pacing**: do not crank `--cps` in live discussions; the defaults are the point.
@@ -405,8 +404,12 @@ Returns the recent direct messages exchanged with the given user.
 
 #### Other message endpoints
 
-The Bot API also supports `POST /api/bot/reply/{mid}` (reply to a message),
-`POST /api/bot/edit/{mid}`, and `POST /api/bot/delete/{mid}`.
+The Bot API also supports `POST /api/bot/edit/{mid}` and `POST /api/bot/delete/{mid}`.
+
+Note: `POST /api/bot/reply/{mid}` (threaded replies) exists on the server but is
+**intentionally unsupported** by this tooling and must not be used — VoceChat
+renders the referenced message above every reply, duplicating long posts. All
+agent messages go out top-level via `send-user`/`send-group`/`say`.
 
 #### Upload a file
 
@@ -616,12 +619,7 @@ python skills/chat/vocechat_listen.py --as graphai-engineer --channel general --
 
 The listener never replays history and filters out the listening bot's own messages (so an agent cannot react to itself) and typing claims; use `--include-self` / `--show-claims` to disable either.
 
-For speaking with turn-taking and human-like timing, use `vocechat_speak.py` (see [discussion etiquette](#turn-taking-and-human-like-timing-discussion-etiquette)); the client also provides threaded replies:
-
-```bash
-# Reply to a specific message (threaded response)
-python skills/chat/vocechat_client.py --as senior-hexa-developer reply --mid 109 --content "Good point — see my note above"
-```
+For speaking with turn-taking and human-like timing, use `vocechat_speak.py` (see [discussion etiquette](#turn-taking-and-human-like-timing-discussion-etiquette)). Threaded replies are not provided: the client has no `reply` command by design, and all messages go out top-level.
 
 The client can also be imported as a module:
 

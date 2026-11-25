@@ -1,24 +1,6 @@
 ---
 description: GraphAI engineer — specialist in queuing-style API design and the Graph AI service.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
 ---
 
 # GraphAI Engineer

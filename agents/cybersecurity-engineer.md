@@ -1,28 +1,6 @@
 ---
 description: Cybersecurity engineer ("Guy") — specialist in authentication, vulnerabilities, penetration/intrusion testing, stress testing, and counter-measures; owns graphauth (centralized authN/authZ) and graphsecurity (security tooling & automation).
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
-    python3: allow
-    bash scripts/security/*: allow
-    ./scripts/security/*: allow
-    scripts/security/*: allow
 ---
 
 # Cybersecurity Engineer

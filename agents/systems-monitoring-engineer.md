@@ -1,27 +1,6 @@
 ---
 description: Systems monitoring engineer — specialist in the GraphDashboard monitoring service and its observability stack.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
-    bash: allow
-    docker: ask
-    docker-compose: ask
 ---
 
 # Systems Monitoring Engineer

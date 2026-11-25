@@ -1,28 +1,6 @@
 ---
 description: Full-stack developer specialist for the GraphSearch UI Next.js project at ~/dev/graphsearch_ui.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  grep: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
-    npm run *: allow
-    npm test: allow
-    node scripts/*: allow
 ---
 
 # Full-Stack Developer (GraphSearch UI)

@@ -8,40 +8,38 @@ or answer in robot lockstep. This script simulates both: it chains
   reaction jitter -> floor check -> typing claim -> typing delay -> send
 
 into one atomic call. The floor check yields (exit 4) when another agent
-holds a fresh typing claim for the same message, so two agents answering
-the same question never both hit send; near-simultaneous claims are broken
-deterministically (lower uid keeps the floor). The typing delay scales with
-message length so replies land at a human pace instead of in bursts.
+holds a fresh typing claim in the channel, so two agents never both hit
+send at once; near-simultaneous claims are broken deterministically (lower
+uid keeps the floor). The typing delay scales with message length so
+messages land at a human pace instead of in bursts.
 
 For real thinking turns, split it so the ✍️ bubble shows while you THINK:
 claim the floor FIRST — the moment you decide to answer, before drafting —
-then send with --no-claim when the reply is ready. The bubble is a
-TOP-LEVEL `✍️ (re: <mid>) …` message, deliberately not threaded into the
-reply, so threads stay clean while the inline marker keeps floor checks
-precise. Atomic `say` (claim -> typing delay -> send) remains fine for
-short quick replies.
+then send with --no-claim when the answer is ready. The bubble is a
+TOP-LEVEL `✍️ …` message. Atomic `say` (claim -> typing delay -> send)
+remains fine for short quick messages.
 
 The typing claim is a tiny message starting with `✍️` (the marker lives in
 vocechat_listen.CLAIM_MARKER). Claims are protocol machinery: the listener
-hides them by default, and agents must never react to them. Post claims as
-replies to the message being answered (--reply-to) so the yield check can
-attribute them precisely.
+hides them by default, and agents must never react to them.
+
+Threaded replies are intentionally NOT supported: VoceChat renders the
+referenced message again above every reply, which duplicates long posts
+and makes channels unreadable. Everything is sent top-level; to point at
+an older message, mention its mid (or a short snippet) in your own text.
 
 Usage:
   python skills/chat/vocechat_speak.py --as <me> say --channel <name|gid> \
-      --reply-to <mid> --content "..." [timing options]
+      --content "..." [timing options]
   python skills/chat/vocechat_speak.py --as <me> say --agent <name|uid> \
       --content "..." [timing options]
   python skills/chat/vocechat_speak.py --as <me> claim --channel <name|gid> \
-      --reply-to <mid> [--note "..."]
+      [--note "..."]
 
 say (step 2 of a thinking turn, or the atomic shortcut):
   --agent NAME|UID      Send a DM (no claim needed in a 1:1 thread; the
                         humanized delay still applies)
   --channel NAME|GID    Send to a channel (claims and floor checks apply)
-  --reply-to MID        Thread the MESSAGE under the one being answered and
-                        scope the floor check to it (the ✍️ bubble itself
-                        is always top-level)
   --content TEXT        The message to send (required)
   --topic TEXT          Prefix a `[topic: …]` tag so readers know what the
                         message belongs to
@@ -63,8 +61,6 @@ say (step 2 of a thinking turn, or the atomic shortcut):
 
 claim (step 1 of every thinking turn: take the floor, THEN think):
   --channel NAME|GID    Channel to claim in (required)
-  --reply-to MID        Attribute the bubble to the message being answered
-                        via an inline `(re: <mid>)` marker
   --note TEXT           Text appended after the ✍️ marker
   --force               Skip the floor check (moderator mode)
 
@@ -81,7 +77,6 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import re
 import sys
 import time
 from pathlib import Path
@@ -147,20 +142,11 @@ def scan_claims(messages: list[dict[str, Any]], self_uid: int) -> list[dict[str,
         if from_uid == self_uid or mid <= 0:
             continue
 
-        # Claims carry their target inline as "(re: <mid>)" so the bubble
-        # can stay top-level; older threaded claims fall back to detail.mid.
-        reply_to = None
-        marker = re.search(r"\(re:\s*(\d+)\)", content)
-        if marker:
-            reply_to = int(marker.group(1))
-        elif str(detail.get("type", "")) == "reply":
-            reply_to = detail.get("mid")
         claims.append(
             {
                 "mid"        : mid,
                 "from_uid"   : from_uid,
                 "created_at" : msg.get("created_at", 0) or 0,
-                "reply_to"   : reply_to,
             }
         )
     return claims
@@ -186,7 +172,6 @@ def newest_real_mid(messages: list[dict[str, Any]]) -> int:
 # Internal Function: Filter claims to fresh ones that actually compete for the floor.
 def competing_claims(
     claims      : list[dict[str, Any]],
-    reply_to    : int | None,
     since_mid   : int,
     ttl_s       : float,
 ) -> list[dict[str, Any]]:
@@ -197,24 +182,21 @@ def competing_claims(
         if claim["created_at"] and now_ms - claim["created_at"] > ttl_s * 1000:
             continue
 
-        # Answering a specific message: only claims on that same message
-        # compete. Speaking freely: any claim newer than the conversation
-        # point competes, because someone is already composing.
-        if reply_to is not None:
-            if claim["reply_to"] == reply_to:
-                competitors.append(claim)
-        elif claim["mid"] > since_mid:
+        # Any fresh claim competes: someone is already composing in this
+        # channel. Claims carry no per-message attribution (threaded replies
+        # are disabled), so the floor is channel-wide.
+        if claim["mid"] > since_mid:
             competitors.append(claim)
     return competitors
 
 
-# Internal Function: Post a top-level typing bubble attributed with (re: <mid>).
-def post_claim(client: VoceChatClient, gid: int, reply_to: int | None, note: str | None) -> int:
-    # Top-level on purpose: it keeps reply threads clean, and the inline
-    # marker preserves precise floor attribution for the yield checks.
-    marker = f" (re: {reply_to})" if reply_to else ""
+# Internal Function: Post a top-level typing bubble for the floor.
+def post_claim(client: VoceChatClient, gid: int, note: str | None) -> int:
+    # Top-level on purpose: threaded replies are disabled (VoceChat quotes
+    # the referenced message and duplicates it), so claims are plain
+    # channel-wide bubbles.
     suffix = f" — {note}" if note else " …"
-    return client.send_to_group(gid=gid, content=f"{CLAIM_MARKER}{marker}{suffix}")
+    return client.send_to_group(gid=gid, content=f"{CLAIM_MARKER}{suffix}")
 
 
 # Internal Function: Describe a claim sender for yield messages.
@@ -279,15 +261,14 @@ def take_floor(
     contacts: dict[str, Any],
     self_uid: int,
     gid: int,
-    reply_to: int | None,
 ) -> int:
     tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
     claims = scan_claims(tail, self_uid)
 
-    # Baseline for free-form turns: the newest real message, so any claim
-    # placed after it wins the floor. --since overrides the baseline.
+    # Baseline: the newest real message, so any claim placed after it wins
+    # the floor. --since overrides the baseline.
     since_mid = args.since if args.since else newest_real_mid(tail)
-    competitors = competing_claims(claims, reply_to, since_mid, args.claim_ttl)
+    competitors = competing_claims(claims, since_mid, args.claim_ttl)
     if competitors:
         print(_yield_message(client, contacts, min(competitors, key=lambda c: c["mid"])), file=sys.stderr, flush=True)
         return 0
@@ -295,13 +276,13 @@ def take_floor(
     # Take the floor visibly, then re-check once: a competitor that claimed
     # in the same moment loses to the lower uid, which makes double-claims
     # deterministic instead of a race.
-    claim_mid = post_claim(client, gid, reply_to, getattr(args, "note", None))
+    claim_mid = post_claim(client, gid, getattr(args, "note", None))
     if self_uid > 0:
         tail = client.get_group_messages(gid=gid, context=FLOOR_CONTEXT)
         claims = scan_claims(tail, self_uid)
         rivals = [
             c
-            for c in competing_claims(claims, reply_to, args.since if args.since else 0, args.claim_ttl)
+            for c in competing_claims(claims, args.since if args.since else 0, args.claim_ttl)
             if c["from_uid"] < self_uid
         ]
         if rivals:
@@ -324,14 +305,13 @@ def do_claim(args: argparse.Namespace, client: VoceChatClient, contacts: dict[st
         time.sleep(reaction)
 
     if args.force:
-        claim_mid = post_claim(client, gid, args.reply_to, args.note)
+        claim_mid = post_claim(client, gid, args.note)
     else:
-        claim_mid = take_floor(args, client, contacts, self_uid, gid, args.reply_to)
+        claim_mid = take_floor(args, client, contacts, self_uid, gid)
         if claim_mid == 0:
             return 4
 
-    thread = f" (answering mid={args.reply_to})" if args.reply_to else ""
-    print(f"[speak] floor taken in #{label} (gid={gid}){thread}, claim mid={claim_mid}", flush=True)
+    print(f"[speak] floor taken in #{label} (gid={gid}), claim mid={claim_mid}", flush=True)
     return 0
 
 
@@ -376,56 +356,47 @@ def do_say(args: argparse.Namespace, client: VoceChatClient, contacts: dict[str,
 
     claim_mid = 0
     if gid is not None and not args.no_claim and not args.force:
-        claim_mid = take_floor(args, client, contacts, self_uid, gid, args.reply_to)
+        claim_mid = take_floor(args, client, contacts, self_uid, gid)
         if claim_mid == 0:
             return 4
 
     # Typing delay scales with message length, is capped, and jitters so
-    # consecutive replies never land in robot lockstep.
+    # consecutive messages never land in robot lockstep.
     typing = min(args.max_typing, len(content) / args.cps)
     typing += random.uniform(0, args.jitter)
     if typing > 0:
         time.sleep(typing)
 
+    # Threaded replies are disabled (VoceChat quotes and duplicates the
+    # referenced message): everything goes out top-level.
     if dm_uid is not None:
-        if args.reply_to:
-            sent_mid = client.send_reply(
-                mid=args.reply_to,
-                content=content,
-                markdown=args.markdown,
-            )
-        else:
-            sent_mid = client.send_to_user(
-                uid=dm_uid,
-                content=content,
-                markdown=args.markdown,
-            )
+        sent_mid = client.send_to_user(
+            uid=dm_uid,
+            content=content,
+            markdown=args.markdown,
+        )
         destination = f"DM with {label} (uid={dm_uid})"
     else:
-        if args.reply_to:
-            sent_mid = client.send_reply(
-                mid=args.reply_to,
-                content=content,
-                markdown=args.markdown,
-                mentions=mentions,
-            )
-        else:
-            sent_mid = client.send_to_group(
-                gid=gid,
-                content=content,
-                markdown=args.markdown,
-                mentions=mentions,
-            )
+        # Unreachable in practice: --agent/--channel are mutually exclusive
+        # and required, so a non-DM send always has a channel.
+        if gid is None:
+            print("[speak] error: no destination resolved", file=sys.stderr, flush=True)
+            return 1
+        sent_mid = client.send_to_group(
+            gid=gid,
+            content=content,
+            markdown=args.markdown,
+            mentions=mentions,
+        )
         destination = f"#{label} (gid={gid})"
 
     spent = time.monotonic() - started
-    thread = f" as reply to mid={args.reply_to}" if args.reply_to else ""
     claim_part = f" | claim mid={claim_mid}" if claim_mid else " | no claim"
     extras = f" | topic: {args.topic}" if args.topic else ""
     if handoff_token:
         extras += f" | handoff → @{handoff_token}"
     print(
-        f"[speak] sent mid={sent_mid} to {destination}{thread}"
+        f"[speak] sent mid={sent_mid} to {destination}"
         f"{extras}{claim_part} | reaction+typing {spent:.1f}s",
         flush=True,
     )
@@ -475,7 +446,6 @@ def main() -> None:
     say_targets.add_argument("--agent", default=None, help="Send a DM (name, alias or uid)")
     say_targets.add_argument("--channel", default=None, help="Send to a channel (name, alias or gid)")
     p_say.add_argument("--content", required=True, help="Message text")
-    p_say.add_argument("--reply-to", dest="reply_to", type=int, default=None, help="Thread under this message mid")
     p_say.add_argument("--markdown", action="store_true")
     p_say.add_argument(
         "--topic",
@@ -504,13 +474,6 @@ def main() -> None:
         help="Take the floor now: post the ✍️ bubble, then think",
     )
     p_claim.add_argument("--channel", required=True, help="Channel to claim in (name, alias or gid)")
-    p_claim.add_argument(
-        "--reply-to",
-        dest="reply_to",
-        type=int,
-        default=None,
-        help="Attribute the bubble to this message mid via an inline (re: N) marker",
-    )
     p_claim.add_argument("--note", default=None, help="Text appended after the ✍️ marker")
     p_claim.add_argument("--force", action="store_true", help="Skip the floor check (moderator mode)")
     p_claim.add_argument("--since", type=int, default=0, help="Floor baseline: yield to claims newer than this mid")

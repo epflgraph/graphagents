@@ -1,25 +1,6 @@
 ---
 description: Agentic coding manager — expert on opencode agent orchestration, skill design and evaluation, agent coordination, task delegation, and VoceChat-based agent chatroom surveillance.
 mode: primary
-permission:
-  read: allow
-  glob: allow
-  task: allow
-  skill: allow
-  edit: ask
-  bash:
-    rm: ask
-    pwd: allow
-    ls: allow
-    tree: allow
-    find: allow
-    cat: allow
-    head: allow
-    tail: allow
-    grep: allow
-    rg: allow
-    python: allow
-    mkdir: allow
 ---
 
 # Agentic Coding Manager
